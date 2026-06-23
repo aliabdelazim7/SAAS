@@ -40,7 +40,10 @@ const getApiUrl = () => {
 };
 
 export default function Home() {
-  const API_BASE_URL = getApiUrl();
+  const [apiUrl, setApiUrl] = useState(() => getApiUrl());
+  const [showApiSettings, setShowApiSettings] = useState(false);
+  const [testStatus, setTestStatus] = useState<"idle" | "testing" | "success" | "failed">("idle");
+  const API_BASE_URL = apiUrl;
 
   // --- AUTH STATE ---
   const [token, setToken] = useState<string | null>(null);
@@ -761,6 +764,94 @@ export default function Home() {
               >
                 {authMode === "login" ? "Don't have a workspace? Create tenant" : "Already have an account? Sign in"}
               </button>
+            </div>
+
+            {/* API Connection Settings */}
+            <div className="mt-4 border-t border-slate-800/40 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowApiSettings(!showApiSettings)}
+                className="w-full flex items-center justify-between text-[11px] font-semibold text-slate-500 hover:text-slate-300 transition-colors"
+              >
+                <span>API Connection Settings</span>
+                <span>{showApiSettings ? "Hide Settings" : "Configure Connection"}</span>
+              </button>
+
+              {showApiSettings && (
+                <div className="mt-3 space-y-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800/50 text-left">
+                  <div>
+                    <label className="block text-[9px] text-slate-400 uppercase tracking-wider">Active API URL</label>
+                    <input
+                      type="text"
+                      value={apiUrl}
+                      onChange={(e) => {
+                        setApiUrl(e.target.value);
+                        setTestStatus("idle");
+                      }}
+                      className="mt-1 w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none font-mono"
+                      placeholder="https://saas-ybcw.onrender.com"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setTestStatus("testing");
+                        try {
+                          const res = await fetch(`${apiUrl}/`, { method: "GET" });
+                          if (res.ok || res.status === 404) {
+                            setTestStatus("success");
+                          } else {
+                            setTestStatus("failed");
+                          }
+                        } catch (e) {
+                          setTestStatus("failed");
+                        }
+                      }}
+                      disabled={testStatus === "testing"}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-[10px] font-semibold rounded-lg text-slate-300 transition-colors"
+                    >
+                      {testStatus === "testing" ? "Testing..." : "Test Connection"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setApiUrl("https://saas-ybcw.onrender.com");
+                        setTestStatus("idle");
+                      }}
+                      className="px-2.5 py-1.5 hover:bg-slate-800 text-[10px] font-medium rounded-lg text-slate-400 transition-colors"
+                    >
+                      Cloud
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setApiUrl("http://localhost:4000");
+                        setTestStatus("idle");
+                      }}
+                      className="px-2.5 py-1.5 hover:bg-slate-800 text-[10px] font-medium rounded-lg text-slate-400 transition-colors"
+                    >
+                      Local
+                    </button>
+                  </div>
+
+                  {testStatus === "success" && (
+                    <p className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                      <span>Connected successfully! Backend is online.</span>
+                    </p>
+                  )}
+                  {testStatus === "failed" && (
+                    <p className="text-[10px] text-rose-400 font-semibold flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                      <span>Failed to connect to API server.</span>
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
