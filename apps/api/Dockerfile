@@ -34,12 +34,26 @@ WORKDIR /app
 ENV NODE_ENV=production
 RUN npm install -g pnpm
 
+# Copy workspace config files
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+
+# Copy package manifests (so pnpm knows what to install)
+COPY apps/api/package.json ./apps/api/
+COPY packages/database/package.json ./packages/database/
+COPY packages/dto/package.json ./packages/dto/
+
+# Install only production dependencies
+RUN pnpm install --prod --frozen-lockfile
+
+# Copy compiled outputs and package files from builder stage
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/packages/database ./packages/database
 COPY --from=builder /app/packages/dto ./packages/dto
-COPY --from=builder /app/node_modules ./node_modules
+
+# Generate Prisma Client inside runner (needed for runtime db access)
+RUN pnpm --filter @crm/database exec prisma generate
 
 EXPOSE 4000
 CMD ["node", "apps/api/dist/main.js"]
+
