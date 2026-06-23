@@ -10,6 +10,8 @@ export class TenantContextMiddleware implements NestMiddleware {
     const host = req.headers.host || '';
     let tenantId = req.headers['x-tenant-id'] as string;
 
+    console.log('TenantContextMiddleware - host:', host, 'header tenantId:', tenantId);
+
     // 1. Resolve tenant ID from subdomain if not present in custom header
     if (!tenantId) {
       const subdomain = this.extractSubdomain(host);
@@ -25,9 +27,36 @@ export class TenantContextMiddleware implements NestMiddleware {
       }
     }
 
-    // 2. Execute downstream request pipeline inside the TenantContext storage container
+    // 2. Fallback: Resolve tenant ID from JWT Token payload if still not resolved
+    if (!tenantId && req.headers.authorization) {
+      console.log('TenantContextMiddleware - authorization header present');
+      try {
+        const [type, token] = req.headers.authorization.split(' ');
+        if (type === 'Bearer' && token) {
+          const payloadPart = token.split('.')[1];
+          if (payloadPart) {
+            const decoded = JSON.parse(Buffer.from(payloadPart, 'base64').toString('utf8'));
+            console.log('TenantContextMiddleware - decoded JWT:', decoded);
+            if (decoded && decoded.tenantId) {
+              tenantId = decoded.tenantId;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('TenantContextMiddleware - error decoding JWT:', err);
+        // Ignore parsing errors; AuthGuard will reject invalid signatures later
+      }
+    }
+
+    console.log('TenantContextMiddleware - resolved tenantId:', tenantId);
+
+    // 3. Execute downstream request pipeline inside the TenantContext storage container
     if (tenantId) {
       req.tenantId = tenantId;
+      if (req.raw) {
+        req.raw.tenantId = tenantId;
+      }
+      TenantContext.enterWith({ tenantId });
       TenantContext.run({ tenantId }, () => next());
     } else {
       next();

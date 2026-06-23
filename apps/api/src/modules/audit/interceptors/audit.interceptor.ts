@@ -1,6 +1,7 @@
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
+import { TenantContext } from '@crm/database';
 import { AuditService } from '../audit.service';
 
 @Injectable()
@@ -17,8 +18,16 @@ export class AuditInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    const tenantId = request.tenantId;
     const user = request.user; // Populated by AuthGuard
+    const tenantId = request.tenantId || request.raw?.tenantId || TenantContext.getTenantId() || user?.tenantId;
+
+    if (tenantId) {
+      request.tenantId = tenantId;
+      if (request.raw) {
+        request.raw.tenantId = tenantId;
+      }
+      TenantContext.enterWith({ tenantId });
+    }
     const ipAddress = ip || request.headers['x-forwarded-for'] || '127.0.0.1';
     const userAgent = headers['user-agent'] || 'unknown';
 

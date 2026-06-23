@@ -1,5 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { TenantContext } from '@crm/database';
 import { RbacService } from '../rbac.service';
 import { RequiredPermission } from '../decorators/permission.decorator';
 
@@ -23,9 +24,20 @@ export class PermissionsGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest();
     const user = request.user; // Populated by AuthGuard
-    const tenantId = request.tenantId; // Populated by TenantContextMiddleware
+    const tenantId = request.tenantId || request.raw?.tenantId || TenantContext.getTenantId() || user?.tenantId;
+
+    if (tenantId) {
+      request.tenantId = tenantId;
+      if (request.raw) {
+        request.raw.tenantId = tenantId;
+      }
+      TenantContext.enterWith({ tenantId });
+    }
+
+    console.log('PermissionsGuard - user:', user, 'tenantId:', tenantId);
 
     if (!user || !tenantId) {
+      console.log('PermissionsGuard - Missing user or tenantId. user exists:', !!user, 'tenantId exists:', !!tenantId);
       return false;
     }
 
