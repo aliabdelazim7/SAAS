@@ -29,9 +29,19 @@ import {
   QrCode
 } from "lucide-react";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const getApiUrl = () => {
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+    if (hostname !== "localhost" && hostname !== "127.0.0.1" && !hostname.startsWith("192.168.")) {
+      return "https://saas-ybcw.onrender.com";
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+};
 
 export default function Home() {
+  const API_BASE_URL = getApiUrl();
+
   // --- AUTH STATE ---
   const [token, setToken] = useState<string | null>(null);
   const [tenantInfo, setTenantInfo] = useState<any>(null);
