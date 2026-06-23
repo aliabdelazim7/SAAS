@@ -1,5 +1,6 @@
 # Stage 1: Build dependencies
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
+
 
 # Install build dependencies for native modules (like argon2)
 RUN apk add --no-cache libc6-compat python3 make g++
@@ -28,7 +29,7 @@ RUN pnpm --filter @crm/database run build
 RUN pnpm --filter @crm/api run build
 
 # Stage 2: Runner Image
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 RUN npm install -g pnpm
