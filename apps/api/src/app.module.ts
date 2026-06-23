@@ -9,6 +9,11 @@ import { RbacModule } from './modules/rbac/rbac.module';
 import { ModuleEngineModule } from './modules/module-engine/module-engine.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { CustomerModule } from './modules/customer/customer.module';
+import { ProductModule } from './modules/product/product.module';
+import { WarehouseModule } from './modules/warehouse/warehouse.module';
+import { InvoiceModule } from './modules/invoice/invoice.module';
+import { ExpenseModule } from './modules/expense/expense.module';
 
 @Module({
   imports: [
@@ -19,6 +24,11 @@ import { AuditModule } from './modules/audit/audit.module';
     ModuleEngineModule,
     SubscriptionModule,
     AuditModule,
+    CustomerModule,
+    ProductModule,
+    WarehouseModule,
+    InvoiceModule,
+    ExpenseModule,
   ],
   controllers: [AppController],
   providers: [AppService],

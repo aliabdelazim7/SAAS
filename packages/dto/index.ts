@@ -1,2 +1,8 @@
 export * from './auth.dto';
 export * from './tenant.dto';
+export * from './customer.dto';
+export * from './product.dto';
+export * from './warehouse.dto';
+export * from './invoice.dto';
+export * from './expense.dto';
+
