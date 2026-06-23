@@ -28,31 +28,20 @@ RUN pnpm --filter @crm/dto run build
 RUN pnpm --filter @crm/database run build
 RUN pnpm --filter @crm/api run build
 
+# Prune devDependencies to keep the image small
+RUN pnpm prune --prod
+
 # Stage 2: Runner Image
 FROM node:22-alpine AS runner
+
+# Install libc6-compat for native modules like argon2 at runtime
+RUN apk add --no-cache libc6-compat
+
 WORKDIR /app
 ENV NODE_ENV=production
-RUN npm install -g pnpm
 
-# Copy workspace config files
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-
-# Copy package manifests (so pnpm knows what to install)
-COPY apps/api/package.json ./apps/api/
-COPY packages/database/package.json ./packages/database/
-COPY packages/dto/package.json ./packages/dto/
-
-# Install only production dependencies
-RUN pnpm install --prod --frozen-lockfile
-
-# Copy compiled outputs and package files from builder stage
-COPY --from=builder /app/apps/api/dist ./apps/api/dist
-COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
-COPY --from=builder /app/packages/database ./packages/database
-COPY --from=builder /app/packages/dto ./packages/dto
-
-# Generate Prisma Client inside runner (needed for runtime db access)
-RUN pnpm --filter @crm/database exec prisma generate
+# Copy everything from builder (including pruned node_modules and generated prisma clients)
+COPY --from=builder /app ./
 
 EXPOSE 4000
 CMD ["node", "apps/api/dist/main.js"]
