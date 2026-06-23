@@ -29,7 +29,7 @@ RUN pnpm --filter @crm/database run build
 RUN pnpm --filter @crm/api run build
 
 # Prune devDependencies to keep the image small
-RUN pnpm prune --prod
+RUN CI=true pnpm prune --prod
 
 # Stage 2: Runner Image
 FROM node:22-alpine AS runner
