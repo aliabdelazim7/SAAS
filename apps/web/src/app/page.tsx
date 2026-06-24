@@ -33,7 +33,7 @@ const getApiUrl = () => {
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
     if (hostname !== "localhost" && hostname !== "127.0.0.1" && !hostname.startsWith("192.168.")) {
-      return "https://saas-ybcw.onrender.com";
+      return "https://saas-ybcv.onrender.com";
     }
   }
   return process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -789,7 +789,7 @@ export default function Home() {
                         setTestStatus("idle");
                       }}
                       className="mt-1 w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none font-mono"
-                      placeholder="https://saas-ybcw.onrender.com"
+                      placeholder="https://saas-ybcv.onrender.com"
                     />
                   </div>
 
@@ -818,7 +818,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => {
-                        setApiUrl("https://saas-ybcw.onrender.com");
+                        setApiUrl("https://saas-ybcv.onrender.com");
                         setTestStatus("idle");
                       }}
                       className="px-2.5 py-1.5 hover:bg-slate-800 text-[10px] font-medium rounded-lg text-slate-400 transition-colors"
