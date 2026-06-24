@@ -9,7 +9,7 @@ WORKDIR /app
 RUN npm install -g pnpm
 
 # Set node-linker to hoisted to avoid symlink issues in multi-stage builds
-RUN pnpm config set node-linker hoisted
+RUN echo "node-linker=hoisted" > .npmrc
 
 # Copy workspace config files
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
