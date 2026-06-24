@@ -28,14 +28,25 @@ export class CustomerService {
   }
 
   async findAll() {
+    const tenantId = TenantContext.getTenantId();
+    if (!tenantId) {
+      return [];
+    }
+
     return this.prisma.customer.findMany({
+      where: { tenantId },
       orderBy: { name: 'asc' },
     });
   }
 
   async findOne(id: string) {
-    const customer = await this.prisma.customer.findUnique({
-      where: { id },
+    const tenantId = TenantContext.getTenantId();
+    if (!tenantId) {
+      throw new NotFoundException('Customer not found.');
+    }
+
+    const customer = await this.prisma.customer.findFirst({
+      where: { id, tenantId },
     });
 
     if (!customer) {

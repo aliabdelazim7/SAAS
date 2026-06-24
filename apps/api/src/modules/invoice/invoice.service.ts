@@ -13,19 +13,19 @@ export class InvoiceService {
       throw new Error('Tenant context missing.');
     }
 
-    // 1. Verify customer exists if specified
+    // 1. Verify customer exists if specified within this tenant
     if (createDto.customerId) {
-      const customer = await this.prisma.customer.findUnique({
-        where: { id: createDto.customerId },
+      const customer = await this.prisma.customer.findFirst({
+        where: { id: createDto.customerId, tenantId },
       });
       if (!customer) {
         throw new NotFoundException('Customer not found.');
       }
     }
 
-    // 2. Verify warehouse exists
-    const warehouse = await this.prisma.warehouse.findUnique({
-      where: { id: createDto.warehouseId },
+    // 2. Verify warehouse exists within this tenant
+    const warehouse = await this.prisma.warehouse.findFirst({
+      where: { id: createDto.warehouseId, tenantId },
     });
     if (!warehouse) {
       throw new NotFoundException('Warehouse not found.');
@@ -41,21 +41,20 @@ export class InvoiceService {
       const resolvedItems: any[] = [];
 
       for (const item of createDto.items) {
-        // A. Verify variant exists and fetch price
-        const variant = await tx.productVariant.findUnique({
-          where: { id: item.variantId },
+        // A. Verify variant exists and fetch price within this tenant
+        const variant = await tx.productVariant.findFirst({
+          where: { id: item.variantId, tenantId },
         });
         if (!variant) {
           throw new NotFoundException(`Product variant ${item.variantId} not found.`);
         }
 
-        // B. Check stock balance in the warehouse
-        const balance = await tx.inventoryBalance.findUnique({
+        // B. Check stock balance in the warehouse within this tenant
+        const balance = await tx.inventoryBalance.findFirst({
           where: {
-            warehouseId_variantId: {
-              warehouseId: createDto.warehouseId,
-              variantId: item.variantId,
-            },
+            warehouseId: createDto.warehouseId,
+            variantId: item.variantId,
+            tenantId,
           },
         });
 
@@ -211,7 +210,13 @@ export class InvoiceService {
   }
 
   async findAll() {
+    const tenantId = TenantContext.getTenantId();
+    if (!tenantId) {
+      return [];
+    }
+
     return this.prisma.invoice.findMany({
+      where: { tenantId },
       include: {
         customer: true,
         items: { include: { variant: { include: { product: true } } } },
@@ -221,8 +226,13 @@ export class InvoiceService {
   }
 
   async findOne(id: string) {
-    const invoice = await this.prisma.invoice.findUnique({
-      where: { id },
+    const tenantId = TenantContext.getTenantId();
+    if (!tenantId) {
+      throw new NotFoundException('Invoice not found.');
+    }
+
+    const invoice = await this.prisma.invoice.findFirst({
+      where: { id, tenantId },
       include: {
         customer: true,
         items: { include: { variant: { include: { product: true } } } },

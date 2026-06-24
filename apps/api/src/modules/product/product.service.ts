@@ -13,11 +13,11 @@ export class ProductService {
       throw new Error('Tenant context missing.');
     }
 
-    // 1. Verify SKU uniqueness for all variants
+    // 1. Verify SKU uniqueness for all variants within this tenant
     const skus = createDto.variants.map((v) => v.sku).filter(Boolean) as string[];
     if (skus.length > 0) {
       const existingVariants = await this.prisma.productVariant.findMany({
-        where: { sku: { in: skus } },
+        where: { sku: { in: skus }, tenantId },
       });
       if (existingVariants.length > 0) {
         throw new ConflictException(
@@ -76,15 +76,26 @@ export class ProductService {
   }
 
   async findAll() {
+    const tenantId = TenantContext.getTenantId();
+    if (!tenantId) {
+      return [];
+    }
+
     return this.prisma.product.findMany({
+      where: { tenantId },
       include: { variants: true },
       orderBy: { name: 'asc' },
     });
   }
 
   async findOne(id: string) {
-    const product = await this.prisma.product.findUnique({
-      where: { id },
+    const tenantId = TenantContext.getTenantId();
+    if (!tenantId) {
+      throw new NotFoundException('Product not found.');
+    }
+
+    const product = await this.prisma.product.findFirst({
+      where: { id, tenantId },
       include: { variants: true },
     });
 

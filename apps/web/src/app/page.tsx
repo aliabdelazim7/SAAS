@@ -55,6 +55,9 @@ export default function Home() {
   const [provisioningMsg, setProvisioningMsg] = useState("");
   const [isFirstTimeSetup, setIsFirstTimeSetup] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [userEnteredCode, setUserEnteredCode] = useState("");
+  const [codeError, setCodeError] = useState<string | null>(null);
 
   // Onboarding form state
   const [loginEmail, setLoginEmail] = useState("");
@@ -740,7 +743,17 @@ export default function Home() {
 
                 {/* Step 1: Email and Password Form */}
                 {regStep === 1 && (
-                  <form className="space-y-6 text-right" onSubmit={(e) => { e.preventDefault(); setRegStep(2); }}>
+                  <form
+                    className="space-y-6 text-right"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const code = Math.floor(100000 + Math.random() * 900000).toString();
+                      setVerificationCode(code);
+                      setUserEnteredCode("");
+                      setCodeError(null);
+                      setRegStep(2);
+                    }}
+                  >
                     <div>
                       <label className="block text-sm font-bold text-slate-700 mb-2">البريد الإلكتروني</label>
                       <input
@@ -776,15 +789,49 @@ export default function Home() {
                 {/* Step 2: Email Verification Notice */}
                 {regStep === 2 && (
                   <div className="text-center space-y-6 py-4">
-                    <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-                      <FileText className="w-10 h-10" />
+                    {/* Simulated Inbox Banner */}
+                    <div className="bg-indigo-50/80 border border-indigo-100/80 rounded-2xl p-5 text-right flex flex-col gap-2 shadow-sm">
+                      <div className="flex items-center gap-2 text-indigo-700 font-extrabold text-sm">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                        </span>
+                        <span>صندوق الوارد (البريد الإلكتروني التجريبي)</span>
+                      </div>
+                      <p className="text-slate-600 text-xs font-bold leading-relaxed">
+                        مرحباً! لتسريع تجربتك وتخطي تأخير وصول الرسائل الإلكترونية، قمنا بتوليد رمز التفعيل لبريدك الخاص <span className="font-mono text-indigo-600">{regEmail}</span> مباشرة أدناه:
+                      </p>
+                      <div className="mt-2 flex items-center justify-between bg-white border border-indigo-150 rounded-xl px-4 py-2.5 shadow-inner">
+                        <span className="text-slate-500 font-bold text-xs">رمز تفعيل الحساب:</span>
+                        <span className="text-2xl font-black text-indigo-600 tracking-widest font-mono select-all">{verificationCode}</span>
+                      </div>
                     </div>
+
+                    <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                      <CheckCircle className="w-8 h-8 animate-pulse" />
+                    </div>
+                    
                     <h3 className="text-xl font-extrabold text-slate-900">تأكيد الحساب والبريد الإلكتروني</h3>
-                    <p className="text-slate-600 text-base max-w-md mx-auto leading-relaxed">
-                      لقد أرسلنا رسالة تأكيد تحتوي على رابط التفعيل إلى بريدك الإلكتروني: <br />
-                      <strong className="text-indigo-600 font-mono text-sm">{regEmail}</strong> <br />
-                      يرجى الضغط على الرابط المرسل لتنشيط الحساب، ثم انقر على زر "التالي" لمتابعة تهيئة نظامك.
-                    </p>
+                    
+                    <div className="text-right max-w-sm mx-auto space-y-2">
+                      <label className="block text-xs font-bold text-slate-600 mb-1">أدخل رمز التفعيل المكون من 6 أرقام</label>
+                      <input
+                        type="text"
+                        maxLength={6}
+                        required
+                        value={userEnteredCode}
+                        onChange={(e) => {
+                          setUserEnteredCode(e.target.value);
+                          setCodeError(null);
+                        }}
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-2xl px-4 py-3.5 text-center tracking-widest text-xl font-black font-mono text-slate-800 focus:outline-none transition-all"
+                        placeholder="000000"
+                      />
+                      {codeError && (
+                        <p className="text-rose-500 text-xs font-bold mt-1 text-center animate-bounce">{codeError}</p>
+                      )}
+                    </div>
+
                     <div className="flex gap-4 max-w-sm mx-auto pt-4">
                       <button
                         type="button"
@@ -795,10 +842,16 @@ export default function Home() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setRegStep(3)}
+                        onClick={() => {
+                          if (userEnteredCode.trim() === verificationCode) {
+                            setRegStep(3);
+                          } else {
+                            setCodeError("رمز التفعيل غير صحيح، يرجى المحاولة مرة أخرى.");
+                          }
+                        }}
                         className="flex-2 py-3 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-2xl shadow-md transition-all cursor-pointer"
                       >
-                        التالي (تم تفعيل الحساب)
+                        تحقق ومتابعة
                       </button>
                     </div>
                   </div>

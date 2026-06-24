@@ -23,14 +23,25 @@ export class WarehouseService {
   }
 
   async findAll() {
+    const tenantId = TenantContext.getTenantId();
+    if (!tenantId) {
+      return [];
+    }
+
     return this.prisma.warehouse.findMany({
+      where: { tenantId },
       orderBy: { name: 'asc' },
     });
   }
 
   async findOne(id: string) {
-    const warehouse = await this.prisma.warehouse.findUnique({
-      where: { id },
+    const tenantId = TenantContext.getTenantId();
+    if (!tenantId) {
+      throw new NotFoundException('Warehouse not found.');
+    }
+
+    const warehouse = await this.prisma.warehouse.findFirst({
+      where: { id, tenantId },
     });
 
     if (!warehouse) {
@@ -72,8 +83,8 @@ export class WarehouseService {
     // 1. Verify warehouse and variant existence
     await this.findOne(adjustStockDto.warehouseId);
 
-    const variant = await this.prisma.productVariant.findUnique({
-      where: { id: adjustStockDto.variantId },
+    const variant = await this.prisma.productVariant.findFirst({
+      where: { id: adjustStockDto.variantId, tenantId },
     });
     if (!variant) {
       throw new NotFoundException('Product variant not found.');
@@ -104,10 +115,11 @@ export class WarehouseService {
   }
 
   async getBalances(warehouseId: string) {
+    const tenantId = TenantContext.getTenantId();
     await this.findOne(warehouseId);
 
     return this.prisma.inventoryBalance.findMany({
-      where: { warehouseId },
+      where: { warehouseId, tenantId },
       include: {
         variant: {
           include: { product: true },

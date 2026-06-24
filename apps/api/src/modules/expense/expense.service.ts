@@ -26,14 +26,25 @@ export class ExpenseService {
   }
 
   async findAll() {
+    const tenantId = TenantContext.getTenantId();
+    if (!tenantId) {
+      return [];
+    }
+
     return this.prisma.expense.findMany({
+      where: { tenantId },
       orderBy: { expenseDate: 'desc' },
     });
   }
 
   async findOne(id: string) {
-    const expense = await this.prisma.expense.findUnique({
-      where: { id },
+    const tenantId = TenantContext.getTenantId();
+    if (!tenantId) {
+      throw new NotFoundException('Expense log not found.');
+    }
+
+    const expense = await this.prisma.expense.findFirst({
+      where: { id, tenantId },
     });
 
     if (!expense) {
