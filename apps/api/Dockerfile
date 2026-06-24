@@ -35,7 +35,7 @@ RUN pnpm --filter @crm/api run build
 RUN pnpm --filter @crm/api --prod deploy /app/deploy
 
 # Run prisma generate in the deployed folder to ensure client files are present
-RUN cd /app/deploy && npx prisma generate --schema=node_modules/@crm/database/prisma/schema.prisma
+RUN cd /app/deploy && PRISMA_GENERATE_SKIP_AUTOINSTALL=1 npx prisma generate --schema=node_modules/@crm/database/prisma/schema.prisma
 
 # Stage 2: Runner Image
 FROM node:22-alpine AS runner
