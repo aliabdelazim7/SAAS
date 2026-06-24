@@ -8,8 +8,8 @@ RUN apk add --no-cache libc6-compat python3 make g++
 WORKDIR /app
 RUN npm install -g pnpm
 
-# Set node-linker to hoisted to avoid symlink issues in multi-stage builds
-RUN echo "node-linker=hoisted" > .npmrc
+# Set inject-workspace-packages to true to enable pnpm deploy in workspaces without symlinks
+RUN echo "inject-workspace-packages=true" > .npmrc
 
 # Copy workspace config files
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
@@ -31,8 +31,11 @@ RUN pnpm --filter @crm/dto run build
 RUN pnpm --filter @crm/database run build
 RUN pnpm --filter @crm/api run build
 
-# Prune devDependencies to keep the image small
-RUN CI=true pnpm prune --prod
+# Deploy to a production-ready clean directory (copies workspace dependencies physically)
+RUN pnpm --filter @crm/api --prod deploy /app/deploy
+
+# Run prisma generate in the deployed folder to ensure client files are present
+RUN cd /app/deploy && npx prisma generate --schema=node_modules/@crm/database/prisma/schema.prisma
 
 # Stage 2: Runner Image
 FROM node:22-alpine AS runner
@@ -43,9 +46,9 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Copy everything from builder (including flat node_modules and compiled code)
-COPY --from=builder /app ./
+# Copy from deploy directory of builder (flat structure with no parent symlinks)
+COPY --from=builder /app/deploy ./
 
 EXPOSE 4000
-CMD ["node", "apps/api/dist/main.js"]
+CMD ["node", "dist/main.js"]
 
