@@ -26,7 +26,12 @@ import {
   Warehouse,
   FolderPlus,
   Coins,
-  QrCode
+  QrCode,
+  Wrench,
+  Briefcase,
+  Cpu,
+  Layers,
+  Calendar
 } from "lucide-react";
 
 const getApiUrl = () => {
@@ -73,6 +78,7 @@ export default function Home() {
   const [regPlanName, setRegPlanName] = useState("BUSINESS");
 
   // --- CORE DATA STATE ---
+  const [tenantProfile, setTenantProfile] = useState<any>(null);
   const [customers, setCustomers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [warehouses, setWarehouses] = useState<any[]>([]);
@@ -80,8 +86,33 @@ export default function Home() {
   const [expenses, setExpenses] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
 
+  // --- TEMPLATE-SPECIFIC INTERACTIVE DATA (SEEDED IN UI) ---
+  const [projects, setProjects] = useState<any[]>([
+    { id: "p1", name: "مطبخ خشب زان فيلا الياسمين", client: "أحمد العتيبي", status: "PRODUCTION", date: "2026-06-24", amount: 15000, measurements: "3.2م * 2.8م * 0.9م", notes: "تجهيز ألواح الخشب والأبواب الهيدروليكية" },
+    { id: "p2", name: "صالون كلاسيكي مغطى بالحرير", client: "سارة الشمري", status: "MEASUREMENT_VISIT", date: "2026-06-25", amount: 8500, measurements: "قيد المراجعة في الزيارة", notes: "موعد الزيارة غداً الساعة 4 عصراً" },
+    { id: "p3", name: "أبواب ألمنيوم ونوافذ دبل جلاس", client: "شركة المجد للمقاولات", status: "LEAD", date: "2026-06-24", amount: 32000, measurements: "لم تحدد بعد", notes: "متابعة العرض الفني المقدم" }
+  ]);
+
+  const [appointments, setAppointments] = useState<any[]>([
+    { id: "a1", vehicle: "تويوتا كامري 2023 (أ ب ج 1234)", service: "فحص 10,000 كم + غيار زيت", status: "REPAIR", time: "10:30 ص", advisor: "سعود القحطاني", mechanic: "م. أشرف عبد العزيز", cost: 350 },
+    { id: "a2", vehicle: "هيونداي سوناتا 2021 (د هـ و 5678)", service: "إصلاح تكييف + شحن فريون", status: "INSPECTION", time: "11:45 ص", advisor: "سعود القحطاني", mechanic: "م. محمد علي", cost: 680 },
+    { id: "a3", vehicle: "لكزس ES 2022 (س ص ع 9999)", service: "تغيير فحمات الفرامل الأمامية", status: "DELIVERY", time: "02:00 م", advisor: "خالد الحربي", mechanic: "م. رامي فايز", cost: 1200 }
+  ]);
+
+  const [productionOrders, setProductionOrders] = useState<any[]>([
+    { id: "po1", product: "قمصان قطنية فاخرة - دفعة 500", rawMaterials: "خيوط قطن، أزرار، ملصقات ماركة", status: "MANUFACTURING", quantity: 500, machine: "ماكينة الخياطة الدائرية A", supervisor: "م. محمود جلال" },
+    { id: "po2", product: "علب كرتون مضلع للتعبئة", rawMaterials: "ألواح كرتون خام، غراء سائل", status: "FINISHED_GOODS", quantity: 2000, machine: "خط الكبس والتعبئة B", supervisor: "م. سامي فرحات" },
+    { id: "po3", product: "أكياس تغليف بلاستيك معزول", rawMaterials: "حبيبات بولي إيثيلين، صبغات ألوان", status: "RAW_MATERIALS", quantity: 10000, machine: "خط سحب البلاستيك C", supervisor: "م. أحمد الشافعي" }
+  ]);
+
+  const [serviceTasks, setServiceTasks] = useState<any[]>([
+    { id: "t1", title: "تصميم الهوية البصرية للعلامة التجارية", client: "مطاعم الشرفة", status: "PROJECT_SETUP", assignee: "فريق التصميم الداخلي", deadline: "2026-07-05", budget: 7500 },
+    { id: "t2", title: "تطوير متجر سلة إلكتروني وتكامله", client: "مؤسسة الأناقة", status: "BILLING", assignee: "م. عمر السعيد", deadline: "2026-06-28", budget: 12000 },
+    { id: "t3", title: "حملة إعلانات تيك توك وسناب شات", client: "مركز تجميل ريفان", status: "LEAD", assignee: "قسم التسويق الرقمي", deadline: "2026-07-10", budget: 4500 }
+  ]);
+
   // --- UI NAVIGATION & GENERAL STATE ---
-  const [activeTab, setActiveTab] = useState<"dashboard" | "customers" | "products" | "pos" | "invoices" | "expenses">("dashboard");
+  const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -118,6 +149,28 @@ export default function Home() {
   const [adjWarehouseId, setAdjWarehouseId] = useState("");
   const [adjVariantId, setAdjVariantId] = useState("");
   const [adjQty, setAdjQty] = useState(100);
+
+  // --- TEMPLATE MODALS STATE ---
+  const [showAddProject, setShowAddProject] = useState(false);
+  const [projName, setProjName] = useState("");
+  const [projClient, setProjClient] = useState("");
+  const [projAmount, setProjAmount] = useState(5000);
+  const [projMeas, setProjMeas] = useState("");
+  const [projNotes, setProjNotes] = useState("");
+
+  const [showAddAppointment, setShowAddAppointment] = useState(false);
+  const [appVehicle, setAppVehicle] = useState("");
+  const [appService, setAppService] = useState("");
+  const [appAdvisor, setAppAdvisor] = useState("سعود القحطاني");
+  const [appMechanic, setAppMechanic] = useState("م. أشرف عبد العزيز");
+  const [appCost, setAppCost] = useState(500);
+
+  const [showAddProduction, setShowAddProduction] = useState(false);
+  const [prodOrdProduct, setProdOrdProduct] = useState("");
+  const [prodOrdMaterials, setProdOrdMaterials] = useState("");
+  const [prodOrdQty, setProdOrdQty] = useState(100);
+  const [prodOrdMachine, setProdOrdMachine] = useState("خط الخياطة الدائرية A");
+  const [prodOrdSupervisor, setProdOrdSupervisor] = useState("م. محمود جلال");
 
   // --- POS CART STATE ---
   const [posWarehouseId, setPosWarehouseId] = useState("");
@@ -164,9 +217,7 @@ export default function Home() {
           if (nextVal < 35) {
             setProvisioningMsg("جاري تأسيس هيكل الجداول وربط مستودعات البيانات...");
           } else if (nextVal < 75) {
-            const indText = regIndustryType === "RETAIL" ? "تجارة التجزئة" : 
-                            regIndustryType === "GARAGE" ? "ورش صيانة السيارات" : 
-                            regIndustryType === "TAILOR" ? "مشاغل الخياطة وحياكة الأقمشة" : "تجارة الجملة";
+            const indText = getIndustryNameArabic(regIndustryType);
             setProvisioningMsg(`تحميل التهيئة الإعدادية المخصصة لقطاع (${indText})...`);
           } else {
             setProvisioningMsg(`ربط مساحة العمل بنطاقك السحابي الخاص: ${regSubdomain}.crmsaas.app...`);
@@ -294,6 +345,13 @@ export default function Home() {
     const headers = { Authorization: `Bearer ${token}` };
 
     try {
+      // 0. Fetch Tenant Profile (Modules, Workflows, Widgets configuration)
+      const profileRes = await fetch(`${API_BASE_URL}/tenant/profile`, { headers });
+      if (profileRes.ok) {
+        const profileData = await profileRes.json();
+        setTenantProfile(profileData);
+      }
+
       // 1. Fetch Customers
       const custRes = await fetch(`${API_BASE_URL}/customers`, { headers });
       if (custRes.ok) {
@@ -341,6 +399,68 @@ export default function Home() {
   const showTemporarySuccess = (msg: string) => {
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(null), 5000);
+  };
+
+  // --- TEMPLATE ACTIONS ---
+  const createProject = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newProj = {
+      id: "p_" + Date.now(),
+      name: projName,
+      client: projClient,
+      amount: Number(projAmount),
+      measurements: projMeas || "لم تحدد بعد",
+      notes: projNotes,
+      status: "LEAD",
+      date: new Date().toISOString().split("T")[0]
+    };
+    setProjects(prev => [newProj, ...prev]);
+    setShowAddProject(false);
+    setProjName("");
+    setProjClient("");
+    setProjAmount(5000);
+    setProjMeas("");
+    setProjNotes("");
+    showTemporarySuccess("تم تسجيل المشروع الجديد وإضافته لمرحلة التواصل بنجاح!");
+  };
+
+  const createAppointment = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newApp = {
+      id: "a_" + Date.now(),
+      vehicle: appVehicle,
+      service: appService,
+      status: "VEHICLE_CHECK_IN",
+      time: new Date().toLocaleTimeString("ar-SA", { hour: '2-digit', minute: '2-digit' }),
+      advisor: appAdvisor,
+      mechanic: appMechanic,
+      cost: Number(appCost)
+    };
+    setAppointments(prev => [newApp, ...prev]);
+    setShowAddAppointment(false);
+    setAppVehicle("");
+    setAppService("");
+    setAppCost(500);
+    showTemporarySuccess("تم استلام السيارة بنجاح وإصدار بطاقة الصيانة!");
+  };
+
+  const createProductionOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newPO = {
+      id: "po_" + Date.now(),
+      product: prodOrdProduct,
+      rawMaterials: prodOrdMaterials,
+      status: "RAW_MATERIALS",
+      quantity: Number(prodOrdQty),
+      machine: prodOrdMachine,
+      supervisor: prodOrdSupervisor
+    };
+    setProductionOrders(prev => [newPO, ...prev]);
+    setShowAddProduction(false);
+    setProdOrdProduct("");
+    setProdOrdMaterials("");
+    setProdOrdQty(100);
+    showTemporarySuccess("تم إصدار أمر التشغيل وبدء تحضير الخامات بنجاح!");
   };
 
   // --- ACTIONS ---
@@ -635,12 +755,872 @@ export default function Home() {
 
   const getIndustryNameArabic = (type: string) => {
     switch (type) {
-      case "RETAIL": return "تجارة التجزئة";
-      case "GARAGE": return "صيانة السيارات";
-      case "TAILOR": return "مشغل الخياطة والحياكة";
-      case "WHOLESALE": return "تجارة الجملة";
-      default: return type;
+      case "RETAIL": return "تجارة التجزئة والمستودعات";
+      case "FURNITURE": return "تصنيع وتفصيل الأثاث";
+      case "GARAGE": return "ورش صيانة السيارات";
+      case "FACTORY": return "المصانع وخطوط الإنتاج";
+      case "SERVICE": return "الشركات الخدمية والاستشارات";
+      default: return type || "تجارة التجزئة والمستودعات";
     }
+  };
+
+  const isModuleEnabled = (modId: string) => {
+    if (!tenantProfile || !tenantProfile.tenantModules) {
+      // Fallback before tenant profile is loaded:
+      // If we know the user's template type from JWT, we can deduce it
+      const currentType = tenantInfo?.industryType || regIndustryType;
+      if (currentType === "FURNITURE") {
+        return ["customers", "projects", "measurements", "quotations", "materials", "inventory", "production", "installations", "finance"].includes(modId);
+      }
+      if (currentType === "GARAGE") {
+        return ["customers", "vehicles", "service_history", "appointments", "projects", "inventory", "finance"].includes(modId);
+      }
+      if (currentType === "FACTORY") {
+        return ["inventory", "purchases", "production", "machines", "maintenance", "finance"].includes(modId);
+      }
+      if (currentType === "SERVICE") {
+        return ["crm", "projects", "teams", "contracts", "finance"].includes(modId);
+      }
+      // Default to RETAIL template modules
+      return ["products", "categories", "brands", "inventory", "warehouses", "purchases", "sales", "pos", "finance", "customers"].includes(modId);
+    }
+    return tenantProfile.tenantModules.some((m: any) => m.moduleId === modId && m.isEnabled);
+  };
+
+  const getProductsLabel = () => {
+    const currentType = tenantInfo?.industryType || regIndustryType;
+    if (currentType === "FURNITURE") return "دليل الخامات والمخازن";
+    if (currentType === "GARAGE") return "قطع الغيار والمستودع";
+    if (currentType === "FACTORY") return "المواد الخام والمنتجات";
+    return "دليل المنتجات والمخزن";
+  };
+
+  const renderDashboardMetrics = () => {
+    const currentType = tenantInfo?.industryType || regIndustryType;
+
+    if (currentType === "FURNITURE") {
+      const activeProjectsCount = projects.filter(p => p.status !== "COMPLETED").length;
+      const pendingMeasurementsCount = projects.filter(p => p.status === "MEASUREMENT_VISIT").length;
+      const productionCount = projects.filter(p => p.status === "PRODUCTION").length;
+      const totalEstimatedAmt = projects.reduce((acc, p) => acc + p.amount, 0);
+
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white border-t-4 border-indigo-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+            <div className="absolute top-0 left-0 w-28 h-28 bg-indigo-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">المقاسات المعلقة</span>
+              <Wrench className="w-6 h-6 text-indigo-500" />
+            </div>
+            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{pendingMeasurementsCount} زيارات</p>
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-indigo-600 font-bold">
+              <span>بانتظار زيارة المهندس الميداني</span>
+            </div>
+          </div>
+
+          <div className="bg-white border-t-4 border-amber-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+            <div className="absolute top-0 left-0 w-28 h-28 bg-amber-550 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">مشاريع في الورشة</span>
+              <Cpu className="w-6 h-6 text-amber-500" />
+            </div>
+            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{productionCount} مشاريع</p>
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-amber-600 font-bold">
+              <span>قيد التصنيع وتجهيز الخشب</span>
+            </div>
+          </div>
+
+          <div className="bg-white border-t-4 border-emerald-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+            <div className="absolute top-0 left-0 w-28 h-28 bg-emerald-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">إجمالي قيم المشاريع</span>
+              <Coins className="w-6 h-6 text-emerald-500" />
+            </div>
+            <p className="text-3xl font-black text-emerald-600 mt-3 font-mono">${totalEstimatedAmt.toLocaleString()}</p>
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
+              <span>القيمة التقديرية التعاقدية</span>
+            </div>
+          </div>
+
+          <div className="bg-white border-t-4 border-rose-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+            <div className="absolute top-0 left-0 w-28 h-28 bg-rose-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">مشاريع جارية</span>
+              <Briefcase className="w-6 h-6 text-rose-500" />
+            </div>
+            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{activeProjectsCount} نشط</p>
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-rose-600 font-bold">
+              <span>قيد العمل والمتابعة</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (currentType === "GARAGE") {
+      const repairsCount = appointments.filter(a => a.status === "REPAIR").length;
+      const pendingCount = appointments.filter(a => a.status === "INSPECTION").length;
+      const readyCount = appointments.filter(a => a.status === "DELIVERY").length;
+      const totalRevenue = appointments.reduce((acc, a) => acc + a.cost, 0);
+
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white border-t-4 border-indigo-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+            <div className="absolute top-0 left-0 w-28 h-28 bg-indigo-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">سيارات قيد الفحص</span>
+              <Search className="w-6 h-6 text-indigo-500" />
+            </div>
+            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{pendingCount} سيارات</p>
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-indigo-600 font-bold">
+              <span>بانتظار تقرير تشخيص الأعطال</span>
+            </div>
+          </div>
+
+          <div className="bg-white border-t-4 border-amber-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+            <div className="absolute top-0 left-0 w-28 h-28 bg-amber-550 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">تحت الصيانة والإصلاح</span>
+              <Wrench className="w-6 h-6 text-amber-500" />
+            </div>
+            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{repairsCount} سيارات</p>
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-amber-600 font-bold">
+              <span>يعمل عليها الفنيون والكهربائيون</span>
+            </div>
+          </div>
+
+          <div className="bg-white border-t-4 border-emerald-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+            <div className="absolute top-0 left-0 w-28 h-28 bg-emerald-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">دخل الصيانة الإجمالي</span>
+              <Coins className="w-6 h-6 text-emerald-500" />
+            </div>
+            <p className="text-3xl font-black text-emerald-600 mt-3 font-mono">${totalRevenue.toLocaleString()}</p>
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
+              <span>الفواتير وأوامر الصيانة الحالية</span>
+            </div>
+          </div>
+
+          <div className="bg-white border-t-4 border-emerald-600 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+            <div className="absolute top-0 left-0 w-28 h-28 bg-emerald-50/70 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">جاهزة للتسليم</span>
+              <CheckCircle className="w-6 h-6 text-emerald-600" />
+            </div>
+            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{readyCount} سيارات</p>
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
+              <span>انتهت الصيانة وبانتظار العميل</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (currentType === "FACTORY") {
+      const manufacturingCount = productionOrders.filter(po => po.status === "MANUFACTURING").length;
+      const rawMaterialsCount = productionOrders.filter(po => po.status === "RAW_MATERIALS").length;
+      const totalQty = productionOrders.reduce((acc, po) => acc + po.quantity, 0);
+
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white border-t-4 border-indigo-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+            <div className="absolute top-0 left-0 w-28 h-28 bg-indigo-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">أوامر الإنتاج الجارية</span>
+              <Cpu className="w-6 h-6 text-indigo-500" />
+            </div>
+            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{manufacturingCount} خطوط</p>
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-indigo-600 font-bold">
+              <span>جاري التصنيع والقص الفعلي</span>
+            </div>
+          </div>
+
+          <div className="bg-white border-t-4 border-amber-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+            <div className="absolute top-0 left-0 w-28 h-28 bg-amber-550 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">تحضير المواد الخام</span>
+              <Package className="w-6 h-6 text-amber-500" />
+            </div>
+            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{rawMaterialsCount} طلبات</p>
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-amber-600 font-bold">
+              <span>تجهيز الخامات وصرفها للمصنع</span>
+            </div>
+          </div>
+
+          <div className="bg-white border-t-4 border-emerald-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+            <div className="absolute top-0 left-0 w-28 h-28 bg-emerald-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">حجم الإنتاج الكلي</span>
+              <TrendingUp className="w-6 h-6 text-emerald-500" />
+            </div>
+            <p className="text-3xl font-black text-emerald-600 mt-3 font-mono">{totalQty.toLocaleString()} وحدة</p>
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
+              <span>المنتجات المستهدفة بالتشغيل</span>
+            </div>
+          </div>
+
+          <div className="bg-white border-t-4 border-emerald-600 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+            <div className="absolute top-0 left-0 w-28 h-28 bg-emerald-50/70 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">كفاءة تشغيل المصنع</span>
+              <CheckCircle className="w-6 h-6 text-emerald-600" />
+            </div>
+            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">92.5%</p>
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
+              <span>نسبة إنتاجية الماكينات النشطة</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (currentType === "SERVICE") {
+      const activeTasksCount = serviceTasks.filter(t => t.status !== "COMPLETED").length;
+      const billingTasksCount = serviceTasks.filter(t => t.status === "BILLING").length;
+      const totalBudget = serviceTasks.reduce((acc, t) => acc + t.budget, 0);
+
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white border-t-4 border-indigo-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+            <div className="absolute top-0 left-0 w-28 h-28 bg-indigo-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">المهام والمشاريع الجارية</span>
+              <Briefcase className="w-6 h-6 text-indigo-500" />
+            </div>
+            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{activeTasksCount} مهام</p>
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-indigo-600 font-bold">
+              <span>قيد التنفيذ والمتابعة اليومية</span>
+            </div>
+          </div>
+
+          <div className="bg-white border-t-4 border-amber-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+            <div className="absolute top-0 left-0 w-28 h-28 bg-amber-550 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">مرحلة الفوترة والتحصيل</span>
+              <FileText className="w-6 h-6 text-amber-500" />
+            </div>
+            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{billingTasksCount} مشاريع</p>
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-amber-600 font-bold">
+              <span>بانتظار الدفعات والتحويلات المالية</span>
+            </div>
+          </div>
+
+          <div className="bg-white border-t-4 border-emerald-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+            <div className="absolute top-0 left-0 w-28 h-28 bg-emerald-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">ميزانية العقود الحالية</span>
+              <Coins className="w-6 h-6 text-emerald-500" />
+            </div>
+            <p className="text-3xl font-black text-emerald-600 mt-3 font-mono">${totalBudget.toLocaleString()}</p>
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
+              <span>إجمالي قيمة المشروعات النشطة</span>
+            </div>
+          </div>
+
+          <div className="bg-white border-t-4 border-emerald-600 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+            <div className="absolute top-0 left-0 w-28 h-28 bg-emerald-50/70 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">مستوى الإنتاجية</span>
+              <CheckCircle className="w-6 h-6 text-emerald-600" />
+            </div>
+            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">98%</p>
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
+              <span>التزام كامل بالمهام ومواعيد التسليم</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Default RETAIL
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white border-t-4 border-indigo-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+          <div className="absolute top-0 left-0 w-28 h-28 bg-indigo-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">إجمالي المبيعات</span>
+            <Coins className="w-6 h-6 text-indigo-500" />
+          </div>
+          <p className="text-3xl font-black text-slate-900 mt-3 font-mono">${totalSales.toFixed(2)}</p>
+          <div className="flex items-center gap-1.5 mt-3 text-xs text-indigo-600 font-bold">
+            <TrendingUp className="w-4 h-4" />
+            <span>مباشر من نقاط البيع</span>
+          </div>
+        </div>
+
+        <div className="bg-white border-t-4 border-rose-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+          <div className="absolute top-0 left-0 w-28 h-28 bg-rose-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">إجمالي المصروفات</span>
+            <DollarSign className="w-6 h-6 text-rose-500" />
+          </div>
+          <p className="text-3xl font-black text-slate-900 mt-3 font-mono">${totalExpenses.toFixed(2)}</p>
+          <div className="flex items-center gap-1.5 mt-3 text-xs text-slate-500 font-bold">
+            <span>المصاريف والتشغيل العام</span>
+          </div>
+        </div>
+
+        <div className="bg-white border-t-4 border-emerald-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+          <div className="absolute top-0 left-0 w-28 h-28 bg-emerald-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">صافي الأرباح</span>
+            <Coins className="w-6 h-6 text-emerald-500" />
+          </div>
+          <p className={`text-3xl font-black mt-3 font-mono ${netProfit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+            ${netProfit.toFixed(2)}
+          </p>
+          <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
+            <span>الهامش المالي المتبقي</span>
+          </div>
+        </div>
+
+        <div className="bg-white border-t-4 border-amber-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
+          <div className="absolute top-0 left-0 w-28 h-28 bg-amber-550 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">كمية المخزون</span>
+            <Package className="w-6 h-6 text-amber-500" />
+          </div>
+          <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{totalStockQty} وحدة</p>
+          <div className="flex items-center gap-1.5 mt-3 text-xs text-amber-600 font-bold">
+            <span>موزعة على {warehouses.length} مستودع</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const advanceProjectStatus = (id: string) => {
+    const statusFlow = ["LEAD", "MEASUREMENT_VISIT", "QUOTATION", "APPROVAL", "PRODUCTION", "INSTALLATION", "DELIVERY", "COMPLETED"];
+    setProjects(prev => prev.map(p => {
+      if (p.id !== id) return p;
+      const idx = statusFlow.indexOf(p.status);
+      const nextStatus = idx < statusFlow.length - 1 ? statusFlow[idx + 1] : statusFlow[0];
+      showTemporarySuccess(`تم نقل المشروع "${p.name}" إلى مرحلة (${getStatusTextArabic(nextStatus)})`);
+      return { ...p, status: nextStatus };
+    }));
+  };
+
+  const advanceAppointmentStatus = (id: string) => {
+    const statusFlow = ["VEHICLE_CHECK_IN", "INSPECTION", "QUOTATION", "APPROVAL", "REPAIR", "QUALITY_CHECK", "DELIVERY"];
+    setAppointments(prev => prev.map(a => {
+      if (a.id !== id) return a;
+      const idx = statusFlow.indexOf(a.status);
+      const nextStatus = idx < statusFlow.length - 1 ? statusFlow[idx + 1] : statusFlow[0];
+      showTemporarySuccess(`تم نقل مركبة "${a.vehicle}" إلى مرحلة (${getStatusTextArabic(nextStatus)})`);
+      return { ...a, status: nextStatus };
+    }));
+  };
+
+  const advanceProductionStatus = (id: string) => {
+    const statusFlow = ["RAW_MATERIALS", "PRODUCTION_ORDER", "MANUFACTURING", "QUALITY_CHECK", "PACKAGING", "FINISHED_GOODS", "DELIVERY"];
+    setProductionOrders(prev => prev.map(po => {
+      if (po.id !== id) return po;
+      const idx = statusFlow.indexOf(po.status);
+      const nextStatus = idx < statusFlow.length - 1 ? statusFlow[idx + 1] : statusFlow[0];
+      showTemporarySuccess(`تم نقل أمر إنتاج "${po.product}" إلى مرحلة (${getStatusTextArabic(nextStatus)})`);
+      return { ...po, status: nextStatus };
+    }));
+  };
+
+  const advanceServiceTaskStatus = (id: string) => {
+    const statusFlow = ["LEAD", "QUALIFICATION", "PROPOSAL", "CONTRACT", "PROJECT_SETUP", "BILLING", "COMPLETED"];
+    setServiceTasks(prev => prev.map(t => {
+      if (t.id !== id) return t;
+      const idx = statusFlow.indexOf(t.status);
+      const nextStatus = idx < statusFlow.length - 1 ? statusFlow[idx + 1] : statusFlow[0];
+      showTemporarySuccess(`تم نقل المشروع الخدمي "${t.title}" إلى مرحلة (${getStatusTextArabic(nextStatus)})`);
+      return { ...t, status: nextStatus };
+    }));
+  };
+
+  const getStatusTextArabic = (status: string) => {
+    switch (status) {
+      case "LEAD": return "تواصل واستفسار";
+      case "MEASUREMENT_VISIT": return "زيارة رفع المقاسات";
+      case "QUOTATION": return "إعداد العرض المالي";
+      case "APPROVAL": return "تم الاعتماد والدفعة الأولى";
+      case "PRODUCTION": return "جاري التصنيع بالورشة";
+      case "INSTALLATION": return "التركيب بموقع العميل";
+      case "DELIVERY": return "جاهز للتسليم والتحصيل";
+      case "COMPLETED": return "مكتمل ومغلق";
+      
+      case "VEHICLE_CHECK_IN": return "استلام السيارة وكتابة الملاحظات";
+      case "INSPECTION": return "تشخيص الأعطال والفحص";
+      case "REPAIR": return "جاري العمل والإصلاح";
+      case "QUALITY_CHECK": return "اختبار جودة السيارة";
+      
+      case "RAW_MATERIALS": return "طلب خامات المصنع";
+      case "PRODUCTION_ORDER": return "تحضير أمر التشغيل";
+      case "MANUFACTURING": return "جاري التشكيل والتصنيع";
+      case "PACKAGING": return "تعبئة وفرز وتغليف";
+      case "FINISHED_GOODS": return "المنتج تام في المستودع";
+      
+      case "QUALIFICATION": return "دراسة متطلبات العقد";
+      case "PROPOSAL": return "عرض المقترح والتقدير";
+      case "CONTRACT": return "توقيع العقد الرسمي";
+      case "PROJECT_SETUP": return "بدء عمل الفريق وتأسيسه";
+      case "BILLING": return "فوترة دفعات جارية";
+      default: return status;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "LEAD":
+      case "VEHICLE_CHECK_IN":
+      case "RAW_MATERIALS":
+        return "bg-slate-100 text-slate-700 border-slate-200";
+      case "MEASUREMENT_VISIT":
+      case "INSPECTION":
+      case "QUALIFICATION":
+      case "PRODUCTION_ORDER":
+        return "bg-indigo-50 text-indigo-600 border-indigo-200";
+      case "QUOTATION":
+      case "PROPOSAL":
+        return "bg-amber-50 text-amber-600 border-amber-200";
+      case "APPROVAL":
+      case "CONTRACT":
+        return "bg-cyan-50 text-cyan-600 border-cyan-200";
+      case "PRODUCTION":
+      case "REPAIR":
+      case "MANUFACTURING":
+      case "PROJECT_SETUP":
+        return "bg-blue-50 text-blue-600 border-blue-200";
+      case "INSTALLATION":
+      case "QUALITY_CHECK":
+      case "PACKAGING":
+      case "BILLING":
+        return "bg-violet-50 text-violet-600 border-violet-200";
+      case "DELIVERY":
+      case "FINISHED_GOODS":
+        return "bg-emerald-50 text-emerald-600 border-emerald-200";
+      case "COMPLETED":
+        return "bg-teal-50 text-teal-600 border-teal-200";
+      default:
+        return "bg-slate-50 text-slate-600 border-slate-200";
+    }
+  };
+
+  const renderDashboardSecondaryBlock = () => {
+    const currentType = tenantInfo?.industryType || regIndustryType;
+
+    if (currentType === "FURNITURE") {
+      return (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Technicians & Measurements */}
+          <div className="bg-white border border-slate-200 p-6 rounded-[32px] lg:col-span-1 space-y-5 shadow-sm text-right">
+            <div className="flex items-center justify-between">
+              <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2.5">
+                <Calendar className="w-5.5 h-5.5 text-indigo-500" />
+                <span>زيارات المقاسات القادمة</span>
+              </h3>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="bg-slate-50 border border-slate-100 p-4.5 rounded-2xl space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-extrabold text-sm text-slate-800">زيارة فيلا الياسمين</span>
+                  <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-lg font-bold">غداً 4م</span>
+                </div>
+                <p className="text-xs text-slate-500">الفني المسؤول: م. ناصر الشهراني</p>
+                <p className="text-xs font-mono text-slate-400">العنوان: حي الياسمين مخرج 5</p>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-100 p-4.5 rounded-2xl space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-extrabold text-sm text-slate-800">زيارة شقة السليمانية</span>
+                  <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-lg font-bold">السبت 1م</span>
+                </div>
+                <p className="text-xs text-slate-500">الفني المسؤول: م. أحمد عبد الله</p>
+                <p className="text-xs font-mono text-slate-400">العنوان: حي السليمانية شارع الضباب</p>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <div className="bg-indigo-50/50 rounded-2xl p-4 text-xs text-indigo-700 font-bold border border-indigo-100/50">
+                💡 نصيحة النظام: تأكد من شحن أجهزة المتر الليزر والتقاط صور 3D للموقع لربطها بملف العميل الموحد.
+              </div>
+            </div>
+          </div>
+
+          {/* Projects Pipeline */}
+          <div className="bg-white border border-slate-200 p-6 rounded-[32px] lg:col-span-2 space-y-5 shadow-sm text-right">
+            <div className="flex items-center justify-between">
+              <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2.5">
+                <Briefcase className="w-5.5 h-5.5 text-indigo-500" />
+                <span>إدارة وتتبع سير مشروعات الأثاث والتفصيل</span>
+              </h3>
+              <span className="text-xs text-slate-400 font-bold">اضغط على بطاقة المشروع لنقله للمرحلة التالية</span>
+            </div>
+
+            <div className="space-y-4">
+              {projects.map((p) => (
+                <div 
+                  key={p.id} 
+                  onClick={() => advanceProjectStatus(p.id)}
+                  className="bg-white border border-slate-200/80 hover:border-indigo-300 hover:shadow-md p-5 rounded-2xl transition-all cursor-pointer flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden group"
+                >
+                  <div className="absolute top-0 right-0 w-1.5 h-full bg-indigo-500"></div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2.5">
+                      <h4 className="font-extrabold text-base text-slate-900 group-hover:text-indigo-600 transition-colors">{p.name}</h4>
+                      <span className={`px-2.5 py-0.5 rounded-lg text-xs font-bold border ${getStatusColor(p.status)}`}>
+                        {getStatusTextArabic(p.status)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      العميل: <span className="font-bold text-slate-700">{p.client}</span> | المقاسات: <span className="font-mono font-bold text-indigo-600">{p.measurements}</span>
+                    </p>
+                    <p className="text-xs text-slate-400 font-bold italic">{p.notes}</p>
+                  </div>
+                  <div className="text-left shrink-0">
+                    <p className="text-lg font-black text-slate-900 font-mono">${p.amount.toLocaleString()}</p>
+                    <p className="text-[10px] text-slate-400 font-bold mt-1">المرحلة التالية ➔</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (currentType === "GARAGE") {
+      return (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Appointments */}
+          <div className="bg-white border border-slate-200 p-6 rounded-[32px] lg:col-span-1 space-y-5 shadow-sm text-right">
+            <div className="flex items-center justify-between">
+              <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2.5">
+                <Calendar className="w-5.5 h-5.5 text-indigo-500" />
+                <span>حجوزات الصيانة لليوم</span>
+              </h3>
+            </div>
+
+            <div className="space-y-3">
+              <div className="bg-slate-50 border border-slate-100 p-4.5 rounded-2xl space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-extrabold text-sm text-slate-800">هوندا سيفيك 2020</span>
+                  <span className="text-xs bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-lg font-bold">04:30 م</span>
+                </div>
+                <p className="text-xs text-slate-500">العميل: ياسر الدوسري</p>
+                <p className="text-xs text-slate-400 font-bold">الخدمة: تغيير فلاتر وزيوت</p>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-100 p-4.5 rounded-2xl space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-extrabold text-sm text-slate-800">فورد إدج 2018</span>
+                  <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-lg font-bold">05:15 م</span>
+                </div>
+                <p className="text-xs text-slate-500">العميل: فهد المطيري</p>
+                <p className="text-xs text-slate-400 font-bold">الخدمة: فحص كهرباء ومكيف</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Cars in service */}
+          <div className="bg-white border border-slate-200 p-6 rounded-[32px] lg:col-span-2 space-y-5 shadow-sm text-right">
+            <div className="flex items-center justify-between">
+              <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2.5">
+                <Wrench className="w-5.5 h-5.5 text-indigo-500" />
+                <span>أوامر عمل ورشة صيانة السيارات الحية</span>
+              </h3>
+              <span className="text-xs text-slate-400 font-bold">اضغط على السيارة لتحديث مرحلة الإصلاح</span>
+            </div>
+
+            <div className="space-y-4">
+              {appointments.map((a) => (
+                <div 
+                  key={a.id} 
+                  onClick={() => advanceAppointmentStatus(a.id)}
+                  className="bg-white border border-slate-200/80 hover:border-indigo-300 hover:shadow-md p-5 rounded-2xl transition-all cursor-pointer flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden group"
+                >
+                  <div className="absolute top-0 right-0 w-1.5 h-full bg-emerald-500"></div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2.5">
+                      <h4 className="font-extrabold text-base text-slate-900 group-hover:text-indigo-600 transition-colors">{a.vehicle}</h4>
+                      <span className={`px-2.5 py-0.5 rounded-lg text-xs font-bold border ${getStatusColor(a.status)}`}>
+                        {getStatusTextArabic(a.status)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      مستشار الخدمة: <span className="font-bold text-slate-700">{a.advisor}</span> | الفني الميكانيكي: <span className="font-bold text-indigo-600">{a.mechanic}</span>
+                    </p>
+                    <p className="text-xs text-slate-400 font-bold">طلب الصيانة: {a.service}</p>
+                  </div>
+                  <div className="text-left shrink-0">
+                    <p className="text-lg font-black text-slate-900 font-mono">${a.cost.toLocaleString()}</p>
+                    <p className="text-[10px] text-slate-400 font-bold mt-1">تحديث المرحلة ➔</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (currentType === "FACTORY") {
+      return (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Machines Status */}
+          <div className="bg-white border border-slate-200 p-6 rounded-[32px] lg:col-span-1 space-y-5 shadow-sm text-right">
+            <div className="flex items-center justify-between">
+              <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2.5">
+                <Cpu className="w-5.5 h-5.5 text-indigo-500" />
+                <span>حالة ماكينات صالة الإنتاج</span>
+              </h3>
+            </div>
+
+            <div className="space-y-3">
+              <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl flex items-center justify-between shadow-sm">
+                <div>
+                  <p className="text-sm font-extrabold text-slate-800">خط الخياطة الدائرية A</p>
+                  <p className="text-xs text-slate-400 mt-0.5">السرعة: 1200 دورة/دقيقة</p>
+                </div>
+                <span className="text-xs font-bold bg-emerald-50 text-emerald-600 px-2 py-1 rounded-lg">
+                  يعمل بكفاءة
+                </span>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl flex items-center justify-between shadow-sm">
+                <div>
+                  <p className="text-sm font-extrabold text-slate-800">خط الكبس والتعبئة B</p>
+                  <p className="text-xs text-slate-400 mt-0.5">المنتج: علب تغليف الكرتون</p>
+                </div>
+                <span className="text-xs font-bold bg-emerald-50 text-emerald-600 px-2 py-1 rounded-lg">
+                  يعمل بكفاءة
+                </span>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl flex items-center justify-between shadow-sm">
+                <div>
+                  <p className="text-sm font-extrabold text-slate-800">ماكينة سحب البلاستيك C</p>
+                  <p className="text-xs text-slate-400 mt-0.5">آخر صيانة: منذ أسبوعين</p>
+                </div>
+                <span className="text-xs font-bold bg-amber-50 text-amber-600 px-2 py-1 rounded-lg">
+                  جاهز / خامل
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Active Production Orders */}
+          <div className="bg-white border border-slate-200 p-6 rounded-[32px] lg:col-span-2 space-y-5 shadow-sm text-right">
+            <div className="flex items-center justify-between">
+              <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2.5">
+                <Layers className="w-5.5 h-5.5 text-indigo-500" />
+                <span>أوامر تشغيل خطوط الإنتاج والـ BOM</span>
+              </h3>
+              <span className="text-xs text-slate-400 font-bold">اضغط لتحديث مرحلة التشغيل</span>
+            </div>
+
+            <div className="space-y-4">
+              {productionOrders.map((po) => (
+                <div 
+                  key={po.id} 
+                  onClick={() => advanceProductionStatus(po.id)}
+                  className="bg-white border border-slate-200/80 hover:border-indigo-300 hover:shadow-md p-5 rounded-2xl transition-all cursor-pointer flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden group"
+                >
+                  <div className="absolute top-0 right-0 w-1.5 h-full bg-blue-500"></div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2.5">
+                      <h4 className="font-extrabold text-base text-slate-900 group-hover:text-indigo-600 transition-colors">{po.product}</h4>
+                      <span className={`px-2.5 py-0.5 rounded-lg text-xs font-bold border ${getStatusColor(po.status)}`}>
+                        {getStatusTextArabic(po.status)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      مشرف الصالة: <span className="font-bold text-slate-700">{po.supervisor}</span> | خط الإنتاج: <span className="font-bold text-indigo-600">{po.machine}</span>
+                    </p>
+                    <p className="text-xs text-slate-400 font-bold">الخامات المستهلكة: {po.rawMaterials}</p>
+                  </div>
+                  <div className="text-left shrink-0">
+                    <p className="text-lg font-black text-slate-900 font-mono">{po.quantity.toLocaleString()} وحدة</p>
+                    <p className="text-[10px] text-slate-400 font-bold mt-1">تحديث المرحلة ➔</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (currentType === "SERVICE") {
+      return (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Upcoming Meetings */}
+          <div className="bg-white border border-slate-200 p-6 rounded-[32px] lg:col-span-1 space-y-5 shadow-sm text-right">
+            <div className="flex items-center justify-between">
+              <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2.5">
+                <Calendar className="w-5.5 h-5.5 text-indigo-500" />
+                <span>الاجتماعات والمقابلات القادمة</span>
+              </h3>
+            </div>
+
+            <div className="space-y-3">
+              <div className="bg-slate-50 border border-slate-100 p-4.5 rounded-2xl space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-extrabold text-sm text-slate-800">مراجعة الهوية البصرية</span>
+                  <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-lg font-bold">اليوم 5م</span>
+                </div>
+                <p className="text-xs text-slate-500">العميل: شركة الشرفة للضيافة</p>
+                <p className="text-xs text-slate-400 font-mono">المنصة: Google Meet</p>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-100 p-4.5 rounded-2xl space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-extrabold text-sm text-slate-800">توقيع عقد متجر سلة</span>
+                  <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-lg font-bold">غداً 11ص</span>
+                </div>
+                <p className="text-xs text-slate-500">العميل: مؤسسة الأناقة للأزياء</p>
+                <p className="text-xs text-slate-400 font-mono">الموقع: مقر المنشأة الرئيسي</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Active Projects Tasks */}
+          <div className="bg-white border border-slate-200 p-6 rounded-[32px] lg:col-span-2 space-y-5 shadow-sm text-right">
+            <div className="flex items-center justify-between">
+              <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2.5">
+                <Briefcase className="w-5.5 h-5.5 text-indigo-500" />
+                <span>فرص وقنوات مبيعات المشروعات الاستشارية</span>
+              </h3>
+              <span className="text-xs text-slate-400 font-bold">اضغط على المهمة لنقلها للمرحلة التالية</span>
+            </div>
+
+            <div className="space-y-4">
+              {serviceTasks.map((t) => (
+                <div 
+                  key={t.id} 
+                  onClick={() => advanceServiceTaskStatus(t.id)}
+                  className="bg-white border border-slate-200/80 hover:border-indigo-300 hover:shadow-md p-5 rounded-2xl transition-all cursor-pointer flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden group"
+                >
+                  <div className="absolute top-0 right-0 w-1.5 h-full bg-violet-500"></div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2.5">
+                      <h4 className="font-extrabold text-base text-slate-900 group-hover:text-indigo-600 transition-colors">{t.title}</h4>
+                      <span className={`px-2.5 py-0.5 rounded-lg text-xs font-bold border ${getStatusColor(t.status)}`}>
+                        {getStatusTextArabic(t.status)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      العميل: <span className="font-bold text-slate-700">{t.client}</span> | المسند إليه: <span className="font-bold text-indigo-600">{t.assignee}</span>
+                    </p>
+                    <p className="text-xs text-slate-400 font-bold">تاريخ التسليم الأقصى: {t.deadline}</p>
+                  </div>
+                  <div className="text-left shrink-0">
+                    <p className="text-lg font-black text-slate-900 font-mono">${t.budget.toLocaleString()}</p>
+                    <p className="text-[10px] text-slate-400 font-bold mt-1">المرحلة التالية ➔</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Default RETAIL
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* WAREHOUSE REGISTRY SUMMARY */}
+        <div className="bg-white border border-slate-200 p-6 rounded-[32px] lg:col-span-1 space-y-5 shadow-sm text-right">
+          <div className="flex items-center justify-between">
+            <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2.5">
+              <Warehouse className="w-5.5 h-5.5 text-indigo-500" />
+              <span>المستودعات والفروع</span>
+            </h3>
+            <button
+              onClick={() => setShowAddWarehouse(true)}
+              className="p-2 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 hover:text-indigo-600 rounded-xl text-indigo-500 transition-all cursor-pointer"
+              title="إضافة مستودع جديد"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+
+          {warehouses.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-10 font-medium">لا توجد فروع مسجلة حالياً. أضف مستودعاً لتسجيل المخزون.</p>
+          ) : (
+            <div className="space-y-3">
+              {warehouses.map((wh) => (
+                <div key={wh.id} className="bg-slate-50 border border-slate-100 p-4.5 rounded-2xl flex items-center justify-between hover:border-slate-200 transition-colors shadow-sm">
+                  <div>
+                    <p className="text-sm font-extrabold text-slate-900">{wh.name}</p>
+                    <p className="text-xs text-slate-500 mt-1">{wh.address || "لم يتم تسجيل تفاصيل العنوان"}</p>
+                  </div>
+                  <span className="text-xs font-bold bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg">
+                    نشط
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button
+            onClick={() => setShowAdjustStock(true)}
+            className="w-full py-3.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-sm font-bold rounded-2xl transition-all cursor-pointer text-center block shadow-sm"
+          >
+            توريد وتسوية كميات المخزون
+          </button>
+        </div>
+
+        {/* RECENT INVOICES CHECKOUT LOG */}
+        <div className="bg-white border border-slate-200 p-6 rounded-[32px] lg:col-span-2 space-y-5 shadow-sm text-right">
+          <div className="flex items-center justify-between">
+            <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2.5">
+              <FileText className="w-5.5 h-5.5 text-indigo-500" />
+              <span>آخر العمليات وفواتير المبيعات</span>
+            </h3>
+            <button
+              onClick={() => setActiveTab("invoices")}
+              className="text-sm font-bold text-indigo-600 hover:underline cursor-pointer"
+            >
+              عرض السجل بالكامل
+            </button>
+          </div>
+
+          {invoices.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-16 font-medium">لا توجد مبيعات مسجلة حتى الآن.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-500">
+                    <th className="pb-4 font-extrabold">رقم الفاتورة</th>
+                    <th className="pb-4 font-extrabold">العميل</th>
+                    <th className="pb-4 font-extrabold">طريقة السداد</th>
+                    <th className="pb-4 font-extrabold text-left">المجموع الكلي</th>
+                    <th className="pb-4 font-extrabold text-center">حالة السداد</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {invoices.slice(0, 5).map((inv) => (
+                    <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-4.5 font-mono text-slate-900 font-extrabold text-sm">{inv.invoiceNumber}</td>
+                      <td className="py-4.5 text-slate-800 font-semibold">{inv.customer?.name || "عميل نقدي عابر"}</td>
+                      <td className="py-4.5 text-xs font-bold text-slate-500">
+                        {inv.paymentMethod === "CARD" ? "مدى / بطاقة" : inv.paymentMethod === "CASH" ? "نقدي" : "تحويل بنكي"}
+                      </td>
+                      <td className="py-4.5 text-left font-black text-slate-900 font-mono text-base">${Number(inv.grandTotal).toFixed(2)}</td>
+                      <td className="py-4.5 text-center">
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                          inv.status === "PAID" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
+                        }`}>
+                          {inv.status === "PAID" ? "مدفوعة" : "مسودة"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   // --- RENDER COMPONENT ---
@@ -906,10 +1886,11 @@ export default function Home() {
                           onChange={(e) => setRegIndustryType(e.target.value)}
                           className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-2xl px-3 py-3.5 text-slate-800 text-sm transition-all focus:outline-none font-bold"
                         >
-                          <option value="RETAIL">قطاع التجزئة (سوبرماركت/ملابس)</option>
-                          <option value="GARAGE">ورش صيانة السيارات</option>
-                          <option value="TAILOR">مشغل خياطة وحياكة</option>
-                          <option value="WHOLESALE">تجارة الجملة</option>
+                          <option value="RETAIL">إدارة محلات التجزئة والمستودعات</option>
+                          <option value="FURNITURE">تفصيل وتصنيع الأثاث والمطابخ</option>
+                          <option value="GARAGE">ورش ومراكز صيانة السيارات</option>
+                          <option value="FACTORY">المصانع وإدارة خطوط الإنتاج</option>
+                          <option value="SERVICE">الشركات الخدمية والاستشارات والمقاولات</option>
                         </select>
                       </div>
                       <div>
@@ -1084,65 +2065,122 @@ export default function Home() {
             <span>الرئيسية والإحصاءات</span>
           </button>
           
-          <button
-            onClick={() => setActiveTab("customers")}
-            className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
-              activeTab === "customers"
-                ? "bg-indigo-50 text-indigo-600 border-r-4 border-indigo-500 font-extrabold shadow-sm shadow-indigo-100/50"
-                : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-            }`}
-          >
-            <Users className="w-5.5 h-5.5 shrink-0" />
-            <span>إدارة العملاء (CRM)</span>
-          </button>
+          {(isModuleEnabled("customers") || isModuleEnabled("crm")) && (
+            <button
+              onClick={() => setActiveTab("customers")}
+              className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
+                activeTab === "customers"
+                  ? "bg-indigo-50 text-indigo-600 border-r-4 border-indigo-500 font-extrabold shadow-sm shadow-indigo-100/50"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+              }`}
+            >
+              <Users className="w-5.5 h-5.5 shrink-0" />
+              <span>إدارة العملاء (CRM)</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab("products")}
-            className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
-              activeTab === "products"
-                ? "bg-indigo-50 text-indigo-600 border-r-4 border-indigo-500 font-extrabold shadow-sm shadow-indigo-100/50"
-                : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-            }`}
-          >
-            <Package className="w-5.5 h-5.5 shrink-0" />
-            <span>دليل المنتجات والمخزن</span>
-          </button>
+          {(isModuleEnabled("products") || isModuleEnabled("materials") || isModuleEnabled("inventory")) && (
+            <button
+              onClick={() => setActiveTab("products")}
+              className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
+                activeTab === "products"
+                  ? "bg-indigo-50 text-indigo-600 border-r-4 border-indigo-500 font-extrabold shadow-sm shadow-indigo-100/50"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+              }`}
+            >
+              <Package className="w-5.5 h-5.5 shrink-0" />
+              <span>{getProductsLabel()}</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab("pos")}
-            className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
-              activeTab === "pos"
-                ? "bg-emerald-50 text-emerald-600 border-r-4 border-emerald-500 font-extrabold shadow-sm shadow-emerald-100/50"
-                : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-            }`}
-          >
-            <ShoppingCart className="w-5.5 h-5.5 shrink-0 text-emerald-500" />
-            <span className="text-emerald-600">فاتورة الكاشير (POS)</span>
-          </button>
+          {isModuleEnabled("pos") && (
+            <button
+              onClick={() => setActiveTab("pos")}
+              className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
+                activeTab === "pos"
+                  ? "bg-emerald-50 text-emerald-600 border-r-4 border-emerald-500 font-extrabold shadow-sm shadow-emerald-100/50"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+              }`}
+            >
+              <ShoppingCart className="w-5.5 h-5.5 shrink-0 text-emerald-500" />
+              <span className="text-emerald-600">فاتورة الكاشير (POS)</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab("invoices")}
-            className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
-              activeTab === "invoices"
-                ? "bg-indigo-50 text-indigo-600 border-r-4 border-indigo-500 font-extrabold shadow-sm shadow-indigo-100/50"
-                : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-            }`}
-          >
-            <FileText className="w-5.5 h-5.5 shrink-0" />
-            <span>سجل الفواتير الصادرة</span>
-          </button>
+          {/* Template-Specific Tab 1: Projects (Furniture, Service) */}
+          {isModuleEnabled("projects") && (
+            <button
+              onClick={() => setActiveTab("projects")}
+              className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
+                activeTab === "projects"
+                  ? "bg-indigo-50 text-indigo-600 border-r-4 border-indigo-500 font-extrabold shadow-sm shadow-indigo-100/50"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+              }`}
+            >
+              <Briefcase className="w-5.5 h-5.5 shrink-0" />
+              <span>
+                {(tenantInfo?.industryType || regIndustryType) === "FURNITURE" ? "تفصيل ومقاسات المشاريع" : "إدارة المشاريع والمهام"}
+              </span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab("expenses")}
-            className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
-              activeTab === "expenses"
-                ? "bg-indigo-50 text-indigo-600 border-r-4 border-indigo-500 font-extrabold shadow-sm shadow-indigo-100/50"
-                : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-            }`}
-          >
-            <DollarSign className="w-5.5 h-5.5 shrink-0" />
-            <span>المصروفات والخزينة</span>
-          </button>
+          {/* Template-Specific Tab 2: Workshop & Car Service (Garage) */}
+          {(isModuleEnabled("vehicles") || isModuleEnabled("appointments")) && (
+            <button
+              onClick={() => setActiveTab("workshop")}
+              className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
+                activeTab === "workshop"
+                  ? "bg-indigo-50 text-indigo-600 border-r-4 border-indigo-500 font-extrabold shadow-sm shadow-indigo-100/50"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+              }`}
+            >
+              <Wrench className="w-5.5 h-5.5 shrink-0" />
+              <span>ورشة استقبال وصيانة السيارات</span>
+            </button>
+          )}
+
+          {/* Template-Specific Tab 3: Production Lines & Factory (Factory) */}
+          {isModuleEnabled("production") && (tenantInfo?.industryType || regIndustryType) === "FACTORY" && (
+            <button
+              onClick={() => setActiveTab("factory")}
+              className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
+                activeTab === "factory"
+                  ? "bg-indigo-50 text-indigo-600 border-r-4 border-indigo-500 font-extrabold shadow-sm shadow-indigo-100/50"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+              }`}
+            >
+              <Cpu className="w-5.5 h-5.5 shrink-0" />
+              <span>خطوط الإنتاج والتصنيع</span>
+            </button>
+          )}
+
+          {(isModuleEnabled("sales") || isModuleEnabled("finance") || isModuleEnabled("invoices")) && (
+            <button
+              onClick={() => setActiveTab("invoices")}
+              className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
+                activeTab === "invoices"
+                  ? "bg-indigo-50 text-indigo-600 border-r-4 border-indigo-500 font-extrabold shadow-sm shadow-indigo-100/50"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+              }`}
+            >
+              <FileText className="w-5.5 h-5.5 shrink-0" />
+              <span>سجل الفواتير الصادرة</span>
+            </button>
+          )}
+
+          {(isModuleEnabled("finance") || isModuleEnabled("expenses")) && (
+            <button
+              onClick={() => setActiveTab("expenses")}
+              className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
+                activeTab === "expenses"
+                  ? "bg-indigo-50 text-indigo-600 border-r-4 border-indigo-500 font-extrabold shadow-sm shadow-indigo-100/50"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+              }`}
+            >
+              <DollarSign className="w-5.5 h-5.5 shrink-0" />
+              <span>المصروفات والخزينة</span>
+            </button>
+          )}
         </aside>
 
         {/* MAIN VIEW AREA */}
@@ -1186,156 +2224,10 @@ export default function Home() {
           {activeTab === "dashboard" && (
             <div className="space-y-8">
               {/* METRIC CARD GRID */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white border-t-4 border-indigo-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-                  <div className="absolute top-0 left-0 w-28 h-28 bg-indigo-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">إجمالي المبيعات</span>
-                    <Coins className="w-6 h-6 text-indigo-500" />
-                  </div>
-                  <p className="text-3xl font-black text-slate-900 mt-3 font-mono">${totalSales.toFixed(2)}</p>
-                  <div className="flex items-center gap-1.5 mt-3 text-xs text-indigo-600 font-bold">
-                    <TrendingUp className="w-4 h-4" />
-                    <span>مباشر من نقاط البيع</span>
-                  </div>
-                </div>
-
-                <div className="bg-white border-t-4 border-rose-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-                  <div className="absolute top-0 left-0 w-28 h-28 bg-rose-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">إجمالي المصروفات</span>
-                    <DollarSign className="w-6 h-6 text-rose-500" />
-                  </div>
-                  <p className="text-3xl font-black text-slate-900 mt-3 font-mono">${totalExpenses.toFixed(2)}</p>
-                  <div className="flex items-center gap-1.5 mt-3 text-xs text-slate-500 font-bold">
-                    <span>المصاريف والتشغيل العام</span>
-                  </div>
-                </div>
-
-                <div className="bg-white border-t-4 border-emerald-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-                  <div className="absolute top-0 left-0 w-28 h-28 bg-emerald-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">صافي الأرباح</span>
-                    <Coins className="w-6 h-6 text-emerald-500" />
-                  </div>
-                  <p className={`text-3xl font-black mt-3 font-mono ${netProfit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                    ${netProfit.toFixed(2)}
-                  </p>
-                  <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
-                    <span>الهامش المالي المتبقي</span>
-                  </div>
-                </div>
-
-                <div className="bg-white border-t-4 border-amber-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-                  <div className="absolute top-0 left-0 w-28 h-28 bg-amber-550 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">كمية المخزون</span>
-                    <Package className="w-6 h-6 text-amber-500" />
-                  </div>
-                  <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{totalStockQty} وحدة</p>
-                  <div className="flex items-center gap-1.5 mt-3 text-xs text-amber-600 font-bold">
-                    <span>موزعة على {warehouses.length} مستودع</span>
-                  </div>
-                </div>
-              </div>
+              {renderDashboardMetrics()}
 
               {/* SECONDARY INFO BLOCK: WAREHOUSES & RECENT ACTIVITY */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* WAREHOUSE REGISTRY SUMMARY */}
-                <div className="bg-white border border-slate-200 p-6 rounded-[32px] lg:col-span-1 space-y-5 shadow-sm text-right">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2.5">
-                      <Warehouse className="w-5.5 h-5.5 text-indigo-500" />
-                      <span>المستودعات والفروع</span>
-                    </h3>
-                    <button
-                      onClick={() => setShowAddWarehouse(true)}
-                      className="p-2 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 hover:text-indigo-600 rounded-xl text-indigo-500 transition-all cursor-pointer"
-                      title="إضافة مستودع جديد"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {warehouses.length === 0 ? (
-                    <p className="text-sm text-slate-400 text-center py-10 font-medium">لا توجد فروع مسجلة حالياً. أضف مستودعاً لتسجيل المخزون.</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {warehouses.map((wh) => (
-                        <div key={wh.id} className="bg-slate-50 border border-slate-100 p-4.5 rounded-2xl flex items-center justify-between hover:border-slate-200 transition-colors shadow-sm">
-                          <div>
-                            <p className="text-sm font-extrabold text-slate-900">{wh.name}</p>
-                            <p className="text-xs text-slate-500 mt-1">{wh.address || "لم يتم تسجيل تفاصيل العنوان"}</p>
-                          </div>
-                          <span className="text-xs font-bold bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg">
-                            نشط
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <button
-                    onClick={() => setShowAdjustStock(true)}
-                    className="w-full py-3.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-sm font-bold rounded-2xl transition-all cursor-pointer text-center block shadow-sm"
-                  >
-                    توريد وتسوية كميات المخزون
-                  </button>
-                </div>
-
-                {/* RECENT INVOICES CHECKOUT LOG */}
-                <div className="bg-white border border-slate-200 p-6 rounded-[32px] lg:col-span-2 space-y-5 shadow-sm text-right">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2.5">
-                      <FileText className="w-5.5 h-5.5 text-indigo-500" />
-                      <span>آخر العمليات وفواتير المبيعات</span>
-                    </h3>
-                    <button
-                      onClick={() => setActiveTab("invoices")}
-                      className="text-sm font-bold text-indigo-600 hover:underline cursor-pointer"
-                    >
-                      عرض السجل بالكامل
-                    </button>
-                  </div>
-
-                  {invoices.length === 0 ? (
-                    <p className="text-sm text-slate-400 text-center py-16 font-medium">لا توجد مبيعات مسجلة حتى الآن.</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-right text-sm">
-                        <thead>
-                          <tr className="border-b border-slate-200 text-slate-500">
-                            <th className="pb-4 font-extrabold">رقم الفاتورة</th>
-                            <th className="pb-4 font-extrabold">العميل</th>
-                            <th className="pb-4 font-extrabold">طريقة السداد</th>
-                            <th className="pb-4 font-extrabold text-left">المجموع الكلي</th>
-                            <th className="pb-4 font-extrabold text-center">حالة السداد</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {invoices.slice(0, 5).map((inv) => (
-                            <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors">
-                              <td className="py-4.5 font-mono text-slate-900 font-extrabold text-sm">{inv.invoiceNumber}</td>
-                              <td className="py-4.5 text-slate-800 font-semibold">{inv.customer?.name || "عميل نقدي عابر"}</td>
-                              <td className="py-4.5 text-xs font-bold text-slate-500">
-                                {inv.paymentMethod === "CARD" ? "مدى / بطاقة" : inv.paymentMethod === "CASH" ? "نقدي" : "تحويل بنكي"}
-                              </td>
-                              <td className="py-4.5 text-left font-black text-slate-900 font-mono text-base">${Number(inv.grandTotal).toFixed(2)}</td>
-                              <td className="py-4.5 text-center">
-                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                  inv.status === "PAID" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
-                                }`}>
-                                  {inv.status === "PAID" ? "مدفوعة" : "مسودة"}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              </div>
+              {renderDashboardSecondaryBlock()}
             </div>
           )}
 
@@ -1779,6 +2671,349 @@ export default function Home() {
                     </table>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB CONTENT: PROJECTS (FURNITURE & SERVICE) */}
+          {activeTab === "projects" && (
+            <div className="space-y-6 text-right animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900">
+                    {(tenantInfo?.industryType || regIndustryType) === "FURNITURE" ? "إدارة وتفصيل مشروعات العملاء" : "إدارة المشاريع والمهام الاستشارية"}
+                  </h2>
+                  <p className="text-sm text-slate-500 mt-1">
+                    {(tenantInfo?.industryType || regIndustryType) === "FURNITURE" 
+                      ? "متابعة المقاسات وعروض الأسعار وحالات التصنيع والتركيب للأثاث والديكور" 
+                      : "تنظيم مهام الفرق الفنية، تتبع عقود العملاء والفوترة ومراحل التسليم"}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowAddProject(true)}
+                  className="flex items-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-sm font-bold shadow-lg shadow-indigo-600/10 transition-all cursor-pointer"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span>
+                    {(tenantInfo?.industryType || regIndustryType) === "FURNITURE" ? "تسجيل مشروع / طلب تفصيل جديد" : "إنشاء مشروع / مهمة جديدة"}
+                  </span>
+                </button>
+              </div>
+
+              {/* Kanban-like grid view of projects by workflow state */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                {/* Column 1: Leads / Preparation */}
+                <div className="bg-slate-50 border border-slate-200/50 p-5 rounded-3xl space-y-4">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                    <span className="font-extrabold text-sm text-slate-700">تواصل جديد ومقاسات</span>
+                    <span className="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-md font-bold">
+                      {projects.filter(p => p.status === "LEAD" || p.status === "MEASUREMENT_VISIT").length}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {projects.filter(p => p.status === "LEAD" || p.status === "MEASUREMENT_VISIT").map(p => (
+                      <div key={p.id} onClick={() => advanceProjectStatus(p.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                        <p className="font-extrabold text-sm text-slate-800">{p.name}</p>
+                        <p className="text-slate-500">العميل: {p.client}</p>
+                        {p.measurements && <p className="text-indigo-600 font-mono">المقاس: {p.measurements}</p>}
+                        <div className="flex justify-between items-center pt-2">
+                          <span className="font-extrabold text-slate-900">${p.amount}</span>
+                          <span className="text-[10px] text-slate-400 font-bold">المرحلة التالية ➔</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Column 2: Quotation & Design */}
+                <div className="bg-slate-50 border border-slate-200/50 p-5 rounded-3xl space-y-4">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                    <span className="font-extrabold text-sm text-slate-700">التسعير والتصاميم</span>
+                    <span className="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-md font-bold">
+                      {projects.filter(p => p.status === "QUOTATION" || p.status === "APPROVAL").length}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {projects.filter(p => p.status === "QUOTATION" || p.status === "APPROVAL").map(p => (
+                      <div key={p.id} onClick={() => advanceProjectStatus(p.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                        <p className="font-extrabold text-sm text-slate-800">{p.name}</p>
+                        <p className="text-slate-500">العميل: {p.client}</p>
+                        <div className="flex justify-between items-center pt-2">
+                          <span className="font-extrabold text-slate-900">${p.amount}</span>
+                          <span className="text-[10px] text-slate-400 font-bold">المرحلة التالية ➔</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Column 3: Factory / Production */}
+                <div className="bg-slate-50 border border-slate-200/50 p-5 rounded-3xl space-y-4">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                    <span className="font-extrabold text-sm text-slate-700">جاري التصنيع بالورشة</span>
+                    <span className="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-md font-bold">
+                      {projects.filter(p => p.status === "PRODUCTION").length}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {projects.filter(p => p.status === "PRODUCTION").map(p => (
+                      <div key={p.id} onClick={() => advanceProjectStatus(p.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                        <p className="font-extrabold text-sm text-slate-800">{p.name}</p>
+                        <p className="text-slate-500">العميل: {p.client}</p>
+                        <div className="flex justify-between items-center pt-2">
+                          <span className="font-extrabold text-slate-900">${p.amount}</span>
+                          <span className="text-[10px] text-slate-400 font-bold">المرحلة التالية ➔</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Column 4: Installation & Delivery */}
+                <div className="bg-slate-50 border border-slate-200/50 p-5 rounded-3xl space-y-4">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                    <span className="font-extrabold text-sm text-slate-700">التركيب والتسليم النهائي</span>
+                    <span className="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-md font-bold">
+                      {projects.filter(p => p.status === "INSTALLATION" || p.status === "DELIVERY" || p.status === "COMPLETED").length}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {projects.filter(p => p.status === "INSTALLATION" || p.status === "DELIVERY" || p.status === "COMPLETED").map(p => (
+                      <div key={p.id} onClick={() => advanceProjectStatus(p.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                        <p className="font-extrabold text-sm text-slate-800">{p.name}</p>
+                        <p className="text-slate-500">العميل: {p.client}</p>
+                        <div className="flex justify-between items-center pt-2">
+                          <span className="font-extrabold text-slate-900">${p.amount}</span>
+                          <span className="text-xs text-emerald-600 font-bold">{p.status === "COMPLETED" ? "مكتمل ✓" : "متابعة التسليم ➔"}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB CONTENT: WORKSHOP (GARAGE) */}
+          {activeTab === "workshop" && (
+            <div className="space-y-6 text-right animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900">صالة استقبال وأوامر عمل صيانة السيارات</h2>
+                  <p className="text-sm text-slate-500 mt-1">تتبع دورة صيانة المركبة بدءاً من الفحص وتقدير قطع الغيار إلى الإصلاح وتسليم العميل</p>
+                </div>
+                <button
+                  onClick={() => setShowAddAppointment(true)}
+                  className="flex items-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-sm font-bold shadow-lg shadow-indigo-600/10 transition-all cursor-pointer"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span>استقبال مركبة جديدة للورشة</span>
+                </button>
+              </div>
+
+              {/* Kanban-like grid view of appointments */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                {/* Column 1: Check-in / Inspection */}
+                <div className="bg-slate-50 border border-slate-200/50 p-5 rounded-3xl space-y-4">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                    <span className="font-extrabold text-sm text-slate-700">الاستقبال والفحص</span>
+                    <span className="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-md font-bold">
+                      {appointments.filter(a => a.status === "VEHICLE_CHECK_IN" || a.status === "INSPECTION").length}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {appointments.filter(a => a.status === "VEHICLE_CHECK_IN" || a.status === "INSPECTION").map(a => (
+                      <div key={a.id} onClick={() => advanceAppointmentStatus(a.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                        <p className="font-extrabold text-sm text-slate-800">{a.vehicle}</p>
+                        <p className="text-slate-500">الخدمة: {a.service}</p>
+                        <p className="text-slate-400">الفني: {a.mechanic}</p>
+                        <div className="flex justify-between items-center pt-2">
+                          <span className="font-extrabold text-slate-900">${a.cost}</span>
+                          <span className="text-[10px] text-slate-400 font-bold">المرحلة التالية ➔</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Column 2: Quotation & Approval */}
+                <div className="bg-slate-50 border border-slate-200/50 p-5 rounded-3xl space-y-4">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                    <span className="font-extrabold text-sm text-slate-700">تقدير التكلفة والموافقة</span>
+                    <span className="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-md font-bold">
+                      {appointments.filter(a => a.status === "QUOTATION" || a.status === "APPROVAL").length}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {appointments.filter(a => a.status === "QUOTATION" || a.status === "APPROVAL").map(a => (
+                      <div key={a.id} onClick={() => advanceAppointmentStatus(a.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                        <p className="font-extrabold text-sm text-slate-800">{a.vehicle}</p>
+                        <p className="text-slate-500">الخدمة: {a.service}</p>
+                        <div className="flex justify-between items-center pt-2">
+                          <span className="font-extrabold text-slate-900">${a.cost}</span>
+                          <span className="text-[10px] text-slate-400 font-bold">المرحلة التالية ➔</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Column 3: Repair & Quality Check */}
+                <div className="bg-slate-50 border border-slate-200/50 p-5 rounded-3xl space-y-4">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                    <span className="font-extrabold text-sm text-slate-700">ورشة الصيانة الجارية</span>
+                    <span className="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-md font-bold">
+                      {appointments.filter(a => a.status === "REPAIR" || a.status === "QUALITY_CHECK").length}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {appointments.filter(a => a.status === "REPAIR" || a.status === "QUALITY_CHECK").map(a => (
+                      <div key={a.id} onClick={() => advanceAppointmentStatus(a.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                        <p className="font-extrabold text-sm text-slate-800">{a.vehicle}</p>
+                        <p className="text-slate-500">الخدمة: {a.service}</p>
+                        <p className="text-slate-400">الفني: {a.mechanic}</p>
+                        <div className="flex justify-between items-center pt-2">
+                          <span className="font-extrabold text-slate-900">${a.cost}</span>
+                          <span className="text-[10px] text-slate-400 font-bold">المرحلة التالية ➔</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Column 4: Ready for Delivery */}
+                <div className="bg-slate-50 border border-slate-200/50 p-5 rounded-3xl space-y-4">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                    <span className="font-extrabold text-sm text-slate-700">سيارات جاهزة للتسليم</span>
+                    <span className="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-md font-bold">
+                      {appointments.filter(a => a.status === "DELIVERY").length}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {appointments.filter(a => a.status === "DELIVERY").map(a => (
+                      <div key={a.id} onClick={() => advanceAppointmentStatus(a.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                        <p className="font-extrabold text-sm text-slate-800">{a.vehicle}</p>
+                        <p className="text-slate-500 font-bold text-emerald-600">تسليم وفاتورة</p>
+                        <div className="flex justify-between items-center pt-2">
+                          <span className="font-extrabold text-slate-900">${a.cost}</span>
+                          <span className="text-xs text-emerald-600 font-bold">جاهز ✓</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB CONTENT: FACTORY (PRODUCTION) */}
+          {activeTab === "factory" && (
+            <div className="space-y-6 text-right animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900">إدارة خطوط الإنتاج والتشغيل في صالة المصنع</h2>
+                  <p className="text-sm text-slate-500 mt-1">تتبع وجدولة أوامر التصنيع، سحب المواد الخام من المخازن، ومراقبة جودة خطوط التغليف والتعبئة</p>
+                </div>
+                <button
+                  onClick={() => setShowAddProduction(true)}
+                  className="flex items-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-sm font-bold shadow-lg shadow-indigo-600/10 transition-all cursor-pointer"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span>إصدار أمر إنتاج وتشغيل جديد</span>
+                </button>
+              </div>
+
+              {/* Kanban-like grid view of production orders */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                {/* Column 1: Raw Materials Preparation */}
+                <div className="bg-slate-50 border border-slate-200/50 p-5 rounded-3xl space-y-4">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                    <span className="font-extrabold text-sm text-slate-700">صرف وتجهيز الخامات</span>
+                    <span className="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-md font-bold">
+                      {productionOrders.filter(po => po.status === "RAW_MATERIALS" || po.status === "PRODUCTION_ORDER").length}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {productionOrders.filter(po => po.status === "RAW_MATERIALS" || po.status === "PRODUCTION_ORDER").map(po => (
+                      <div key={po.id} onClick={() => advanceProductionStatus(po.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                        <p className="font-extrabold text-sm text-slate-800">{po.product}</p>
+                        <p className="text-slate-500">الكمية: {po.quantity} وحدة</p>
+                        <p className="text-slate-400">الخامات: {po.rawMaterials}</p>
+                        <div className="flex justify-between items-center pt-2">
+                          <span className="font-bold text-indigo-600">{po.machine}</span>
+                          <span className="text-[10px] text-slate-400 font-bold">المرحلة التالية ➔</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Column 2: Manufacturing */}
+                <div className="bg-slate-50 border border-slate-200/50 p-5 rounded-3xl space-y-4">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                    <span className="font-extrabold text-sm text-slate-700">جاري القص والتشكيل</span>
+                    <span className="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-md font-bold">
+                      {productionOrders.filter(po => po.status === "MANUFACTURING").length}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {productionOrders.filter(po => po.status === "MANUFACTURING").map(po => (
+                      <div key={po.id} onClick={() => advanceProductionStatus(po.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                        <p className="font-extrabold text-sm text-slate-800">{po.product}</p>
+                        <p className="text-slate-500">الكمية: {po.quantity} وحدة</p>
+                        <p className="text-slate-400">المشرف: {po.supervisor}</p>
+                        <div className="flex justify-between items-center pt-2">
+                          <span className="font-bold text-indigo-600">{po.machine}</span>
+                          <span className="text-[10px] text-slate-400 font-bold">المرحلة التالية ➔</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Column 3: Quality Check & Packaging */}
+                <div className="bg-slate-50 border border-slate-200/50 p-5 rounded-3xl space-y-4">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                    <span className="font-extrabold text-sm text-slate-700">فحص الجودة والتعبئة</span>
+                    <span className="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-md font-bold">
+                      {productionOrders.filter(po => po.status === "QUALITY_CHECK" || po.status === "PACKAGING").length}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {productionOrders.filter(po => po.status === "QUALITY_CHECK" || po.status === "PACKAGING").map(po => (
+                      <div key={po.id} onClick={() => advanceProductionStatus(po.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                        <p className="font-extrabold text-sm text-slate-800">{po.product}</p>
+                        <p className="text-slate-500">الكمية: {po.quantity} وحدة</p>
+                        <div className="flex justify-between items-center pt-2">
+                          <span className="font-bold text-indigo-600">{po.machine}</span>
+                          <span className="text-[10px] text-slate-400 font-bold">المرحلة التالية ➔</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Column 4: Finished Goods */}
+                <div className="bg-slate-50 border border-slate-200/50 p-5 rounded-3xl space-y-4">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                    <span className="font-extrabold text-sm text-slate-700">منتجات تامة وجاهزة</span>
+                    <span className="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-md font-bold">
+                      {productionOrders.filter(po => po.status === "FINISHED_GOODS" || po.status === "DELIVERY").length}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {productionOrders.filter(po => po.status === "FINISHED_GOODS" || po.status === "DELIVERY").map(po => (
+                      <div key={po.id} onClick={() => advanceProductionStatus(po.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                        <p className="font-extrabold text-sm text-slate-800">{po.product}</p>
+                        <p className="text-slate-500 font-bold text-emerald-600">منتج تام بالمخازن</p>
+                        <div className="flex justify-between items-center pt-2">
+                          <span className="font-bold text-slate-900">{po.quantity} وحدة</span>
+                          <span className="text-xs text-emerald-600 font-bold">{po.status === "DELIVERY" ? "شحن ✓" : "بانتظار الشحن ➔"}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -2245,6 +3480,247 @@ export default function Home() {
                 >
                   ابدأ العمل الآن
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* ADD PROJECT MODAL */}
+          {showAddProject && (
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg p-6 md:p-8 relative animate-in fade-in zoom-in-95 duration-200 text-right shadow-2xl">
+                <button onClick={() => setShowAddProject(false)} className="absolute top-4 left-4 text-slate-400 hover:text-slate-700 cursor-pointer text-base font-bold">✕</button>
+                <h3 className="text-xl font-black text-slate-900 mb-6 border-b border-slate-100 pb-4">
+                  {(tenantInfo?.industryType || regIndustryType) === "FURNITURE" ? "تسجيل مشروع وتفصيل جديد" : "إنشاء مشروع / مهمة استشارية جديدة"}
+                </h3>
+                <form onSubmit={createProject} className="space-y-5">
+                  <div className="text-right">
+                    <label className="block text-sm font-bold text-slate-700 mb-2">اسم المشروع / الطلب</label>
+                    <input
+                      type="text"
+                      required
+                      value={projName}
+                      onChange={(e) => setProjName(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-right font-medium"
+                      placeholder={(tenantInfo?.industryType || regIndustryType) === "FURNITURE" ? "تفصيل مجلس عربي خشب زان" : "تصميم الهوية الرقمية للموقع"}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-right">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">اسم العميل</label>
+                      <input
+                        type="text"
+                        required
+                        value={projClient}
+                        onChange={(e) => setProjClient(e.target.value)}
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-right font-medium"
+                        placeholder="أحمد الشهراني"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">الميزانية التقديرية ($)</label>
+                      <input
+                        type="number"
+                        required
+                        value={projAmount}
+                        onChange={(e) => setProjAmount(Number(e.target.value))}
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-left font-mono font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  {(tenantInfo?.industryType || regIndustryType) === "FURNITURE" && (
+                    <div className="text-right">
+                      <label className="block text-sm font-bold text-slate-700 mb-2">المقاسات المبدئية (العرض * الطول * الارتفاع)</label>
+                      <input
+                        type="text"
+                        value={projMeas}
+                        onChange={(e) => setProjMeas(e.target.value)}
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-right font-medium"
+                        placeholder="4.5م * 3.8م * 1.0م"
+                      />
+                    </div>
+                  )}
+
+                  <div className="text-right">
+                    <label className="block text-sm font-bold text-slate-700 mb-2">ملاحظات العمل والتنفيذ</label>
+                    <textarea
+                      value={projNotes}
+                      onChange={(e) => setProjNotes(e.target.value)}
+                      rows={3}
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-right font-medium resize-none"
+                      placeholder="مواصفات الخامات والأقمشة وألوان الطلاء المطلوبة..."
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full mt-3 py-3.5 bg-indigo-650 hover:bg-indigo-700 text-white font-extrabold rounded-2xl text-sm transition-all cursor-pointer shadow-lg active:scale-[0.98]"
+                  >
+                    تأكيد إدراج المشروع في النظام
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* ADD APPOINTMENT / REPAIR WORK ORDER MODAL */}
+          {showAddAppointment && (
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg p-6 md:p-8 relative animate-in fade-in zoom-in-95 duration-200 text-right shadow-2xl">
+                <button onClick={() => setShowAddAppointment(false)} className="absolute top-4 left-4 text-slate-400 hover:text-slate-700 cursor-pointer text-base font-bold">✕</button>
+                <h3 className="text-xl font-black text-slate-900 mb-6 border-b border-slate-100 pb-4">استقبال مركبة جديدة وإصدار كارت صيانة</h3>
+                <form onSubmit={createAppointment} className="space-y-5">
+                  <div className="grid grid-cols-2 gap-4 text-right">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">بيانات السيارة ورقم اللوحة</label>
+                      <input
+                        type="text"
+                        required
+                        value={appVehicle}
+                        onChange={(e) => setAppVehicle(e.target.value)}
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-right font-medium"
+                        placeholder="نيسان باترول 2021 (ر س ص 4444)"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">التكلفة التقديرية للإصلاح ($)</label>
+                      <input
+                        type="number"
+                        required
+                        value={appCost}
+                        onChange={(e) => setAppCost(Number(e.target.value))}
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-left font-mono font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <label className="block text-sm font-bold text-slate-700 mb-2">الشكوى / خدمة الصيانة المطلوبة</label>
+                    <input
+                      type="text"
+                      required
+                      value={appService}
+                      onChange={(e) => setAppService(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-right font-medium"
+                      placeholder="صوت طقطقة في المساعدين الأمامية + فحص كمبيوتر"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-right">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">مستشار الخدمة المسؤول</label>
+                      <select
+                        value={appAdvisor}
+                        onChange={(e) => setAppAdvisor(e.target.value)}
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-3 py-3 text-sm text-slate-800 outline-none text-right font-bold"
+                      >
+                        <option value="سعود القحطاني">سعود القحطاني</option>
+                        <option value="خالد الحربي">خالد الحربي</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">الفني الميكانيكي المعين</label>
+                      <select
+                        value={appMechanic}
+                        onChange={(e) => setAppMechanic(e.target.value)}
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-3 py-3 text-sm text-slate-800 outline-none text-right font-bold"
+                      >
+                        <option value="م. أشرف عبد العزيز">م. أشرف عبد العزيز</option>
+                        <option value="م. محمد علي">م. محمد علي</option>
+                        <option value="م. رامي فايز">م. رامي فايز</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full mt-3 py-3.5 bg-indigo-650 hover:bg-indigo-700 text-white font-extrabold rounded-2xl text-sm transition-all cursor-pointer shadow-lg active:scale-[0.98]"
+                  >
+                    تأكيد استقبال السيارة ودخولها الورشة
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* ADD PRODUCTION ORDER MODAL */}
+          {showAddProduction && (
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg p-6 md:p-8 relative animate-in fade-in zoom-in-95 duration-200 text-right shadow-2xl">
+                <button onClick={() => setShowAddProduction(false)} className="absolute top-4 left-4 text-slate-400 hover:text-slate-700 cursor-pointer text-base font-bold">✕</button>
+                <h3 className="text-xl font-black text-slate-900 mb-6 border-b border-slate-100 pb-4">إصدار أمر تشغيل وإنتاج جديد بالصالة</h3>
+                <form onSubmit={createProductionOrder} className="space-y-5">
+                  <div className="grid grid-cols-2 gap-4 text-right">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">اسم المنتج النهائي</label>
+                      <input
+                        type="text"
+                        required
+                        value={prodOrdProduct}
+                        onChange={(e) => setProdOrdProduct(e.target.value)}
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-right font-medium"
+                        placeholder="قمصان قطنية فاخرة - دفعة 1000"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">كمية الإنتاج المستهدفة</label>
+                      <input
+                        type="number"
+                        required
+                        value={prodOrdQty}
+                        onChange={(e) => setProdOrdQty(Number(e.target.value))}
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-left font-mono font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <label className="block text-sm font-bold text-slate-700 mb-2">المواد الخام اللازمة (BOM)</label>
+                    <input
+                      type="text"
+                      required
+                      value={prodOrdMaterials}
+                      onChange={(e) => setProdOrdMaterials(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-right font-medium"
+                      placeholder="12 لفة خيط قطن هندي + أزرار معدنية"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-right">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">خط تشغيل الماكينة المعين</label>
+                      <select
+                        value={prodOrdMachine}
+                        onChange={(e) => setProdOrdMachine(e.target.value)}
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-3 py-3 text-sm text-slate-800 outline-none text-right font-bold"
+                      >
+                        <option value="خط الخياطة الدائرية A">خط الخياطة الدائرية A</option>
+                        <option value="خط الكبس والتعبئة B">خط الكبس والتعبئة B</option>
+                        <option value="خط سحب البلاستيك C">خط سحب البلاستيك C</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">مشرف الصالة المسؤول</label>
+                      <select
+                        value={prodOrdSupervisor}
+                        onChange={(e) => setProdOrdSupervisor(e.target.value)}
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-3 py-3 text-sm text-slate-800 outline-none text-right font-bold"
+                      >
+                        <option value="م. محمود جلال">م. محمود جلال</option>
+                        <option value="م. سامي فرحات">م. سامي فرحات</option>
+                        <option value="م. أحمد الشافعي">م. أحمد الشافعي</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full mt-3 py-3.5 bg-indigo-650 hover:bg-indigo-700 text-white font-extrabold rounded-2xl text-sm transition-all cursor-pointer shadow-lg active:scale-[0.98]"
+                  >
+                    تأكيد إصدار أمر الإنتاج والبدء بالصرف
+                  </button>
+                </form>
               </div>
             </div>
           )}

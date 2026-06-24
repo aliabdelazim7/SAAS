@@ -32,4 +32,9 @@ export class TenantController {
     // In production, we would check if the requestor has ADMIN/OWNER permissions
     return this.tenantService.inviteMember(tenantId, inviteDto);
   }
+
+  @Get('templates')
+  async getTemplates() {
+    return this.tenantService.getTemplates();
+  }
 }

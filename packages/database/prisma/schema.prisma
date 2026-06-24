@@ -36,6 +36,9 @@ model Tenant {
   sessions      UserSession[]
   users         User[]
   warehouses    Warehouse[]
+  templates        TenantTemplate[]
+  dashboardWidgets TenantDashboardWidget[]
+  workflowStates   TenantWorkflowState[]
 
   @@map("tenants")
   @@schema("core_platform")
@@ -97,6 +100,7 @@ model User {
   roles              UserRole[]
   sessions           UserSession[]
   tenant             Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dashboardWidgets   TenantDashboardWidget[]
 
   @@map("users")
   @@schema("tenant_data")
@@ -381,5 +385,154 @@ model Payment {
 
   @@index([tenantId, invoiceId])
   @@map("payments")
+  @@schema("tenant_data")
+}
+
+// ==========================================
+// BUSINESS TEMPLATE REGISTRY MODELS (core_platform schema)
+// ==========================================
+
+model BusinessTemplate {
+  id           String               @id @default(uuid()) @db.Uuid
+  code         String               @unique
+  name         String
+  description  String?
+  industryType String               @map("industry_type")
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+  modules      TemplateModule[]
+  roles        TemplateRole[]
+  dashboards   TemplateDashboard[]
+  workflows    TemplateWorkflow[]
+  tenants      TenantTemplate[]
+
+  @@map("business_templates")
+  @@schema("core_platform")
+}
+
+model TemplateModule {
+  id          String           @id @default(uuid()) @db.Uuid
+  templateId  String           @map("template_id") @db.Uuid
+  moduleId    String           @map("module_id")
+  isRequired  Boolean          @default(true) @map("is_required")
+  template    BusinessTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, moduleId])
+  @@map("template_modules")
+  @@schema("core_platform")
+}
+
+model TemplateRole {
+  id          String               @id @default(uuid()) @db.Uuid
+  templateId  String               @map("template_id") @db.Uuid
+  code        String
+  name        String
+  description String?
+  template    BusinessTemplate     @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  permissions TemplatePermission[]
+
+  @@unique([templateId, code])
+  @@map("template_roles")
+  @@schema("core_platform")
+}
+
+model TemplatePermission {
+  id             String       @id @default(uuid()) @db.Uuid
+  templateRoleId String       @map("template_role_id") @db.Uuid
+  module         String
+  action         String
+  role           TemplateRole @relation(fields: [templateRoleId], references: [id], onDelete: Cascade)
+
+  @@map("template_permissions")
+  @@schema("core_platform")
+}
+
+model TemplateDashboard {
+  id         String           @id @default(uuid()) @db.Uuid
+  templateId String           @map("template_id") @db.Uuid
+  widgetCode String           @map("widget_code")
+  widgetName String           @map("widget_name")
+  gridPos    Json             @map("grid_position")
+  template   BusinessTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("template_dashboards")
+  @@schema("core_platform")
+}
+
+model TemplateWorkflow {
+  id          String           @id @default(uuid()) @db.Uuid
+  templateId  String           @map("template_id") @db.Uuid
+  entityType  String           @map("entity_type")
+  stateCode   String           @map("state_code")
+  stateName   String           @map("state_name")
+  sortOrder   Int              @map("sort_order")
+  isInitial   Boolean          @default(false) @map("is_initial")
+  isFinal     Boolean          @default(false) @map("is_final")
+  template    BusinessTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("template_workflows")
+  @@schema("core_platform")
+}
+
+model TenantTemplate {
+  tenantId   String           @id @map("tenant_id") @db.Uuid
+  templateId String           @map("template_id") @db.Uuid
+  assignedAt DateTime         @default(now()) @map("assigned_at")
+  template   BusinessTemplate @relation(fields: [templateId], references: [id])
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_templates")
+  @@schema("core_platform")
+}
+
+// ==========================================
+// TENANT CONFIGURATION MODELS (tenant_data schema)
+// ==========================================
+
+model TenantDashboardWidget {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  widgetCode String   @map("widget_code")
+  widgetName String   @map("widget_name")
+  gridPos    Json     @map("grid_position")
+  isVisible  Boolean  @default(true) @map("is_visible")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@map("tenant_dashboard_widgets")
+  @@schema("tenant_data")
+}
+
+model TenantWorkflowState {
+  id         String          @id @default(uuid()) @db.Uuid
+  tenantId   String          @map("tenant_id") @db.Uuid
+  entityType String          @map("entity_type")
+  stateCode  String          @map("state_code")
+  stateName  String          @map("state_name")
+  sortOrder  Int             @map("sort_order")
+  isInitial  Boolean         @default(false) @map("is_initial")
+  isFinal    Boolean         @default(false) @map("is_final")
+  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  transitions TenantWorkflowTransition[] @relation("FromState")
+  incomingTransitions TenantWorkflowTransition[] @relation("ToState")
+
+  @@unique([tenantId, entityType, stateCode])
+  @@map("tenant_workflow_states")
+  @@schema("tenant_data")
+}
+
+model TenantWorkflowTransition {
+  id          String              @id @default(uuid()) @db.Uuid
+  tenantId    String              @map("tenant_id") @db.Uuid
+  entityType  String              @map("entity_type")
+  fromStateId String              @map("from_state_id") @db.Uuid
+  toStateId   String              @map("to_state_id") @db.Uuid
+  roleName    String?             @map("role_name")
+  fromState   TenantWorkflowState @relation("FromState", fields: [fromStateId], references: [id], onDelete: Cascade)
+  toState     TenantWorkflowState @relation("ToState", fields: [toStateId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_workflow_transitions")
   @@schema("tenant_data")
 }

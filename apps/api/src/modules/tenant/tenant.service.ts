@@ -96,9 +96,48 @@ export class TenantService {
         },
       });
 
-      // E. Seed Core Permissions
-      const defaultModules = ['crm', 'inventory', 'sales', 'pos', 'purchases', 'finance', 'projects', 'hr'];
-      const actions = ['view', 'create', 'edit', 'delete', 'approve', 'export'];
+      // E. Resolve Global Template Configuration
+      let templateCode = registerDto.industryType.toUpperCase();
+      let template = await tx.businessTemplate.findUnique({
+        where: { code: templateCode },
+        include: {
+          modules: true,
+          roles: { include: { permissions: true } },
+          dashboards: true,
+          workflows: true,
+        },
+      });
+
+      if (!template) {
+        // Fallback to RETAIL template if the code was not matched
+        template = await tx.businessTemplate.findUnique({
+          where: { code: 'RETAIL' },
+          include: {
+            modules: true,
+            roles: { include: { permissions: true } },
+            dashboards: true,
+            workflows: true,
+          },
+        });
+      }
+
+      // Link Tenant to Template
+      if (template) {
+        await tx.tenantTemplate.create({
+          data: {
+            tenantId: tenant.id,
+            templateId: template.id,
+          },
+        });
+      }
+
+      // Seed Master Permissions if not present
+      const defaultModules = [
+        'crm', 'inventory', 'sales', 'pos', 'purchases', 'finance', 'projects', 'hr',
+        'vehicles', 'measurements', 'production', 'installations', 'machines', 'maintenance',
+        'teams', 'contracts', 'tasks'
+      ];
+      const actions = ['view', 'create', 'edit', 'delete', 'approve', 'export', '*'];
       
       const expectedPermissions: { module: string; action: string; description: string }[] = [];
       for (const mod of defaultModules) {
@@ -111,70 +150,147 @@ export class TenantService {
         }
       }
 
-      // Bulk-create missing permissions in a single roundtrip
       await tx.permission.createMany({
         data: expectedPermissions,
         skipDuplicates: true,
       });
 
-      // Retrieve all permissions in a single query
       const allPermissions = await tx.permission.findMany();
       const permissionsMap: { [key: string]: string } = {};
       for (const perm of allPermissions) {
         permissionsMap[`${perm.module}:${perm.action}`] = perm.id;
       }
 
-      // F. Create Default Roles for this Tenant
-      const ownerRole = await tx.role.create({
-        data: { tenantId: tenant.id, name: 'OWNER', description: 'Complete system access' },
-      });
-      const adminRole = await tx.role.create({
-        data: { tenantId: tenant.id, name: 'ADMIN', description: 'Store administrative access' },
-      });
-      const cashierRole = await tx.role.create({
-        data: { tenantId: tenant.id, name: 'CASHIER', description: 'Access to POS screen checkout' },
-      });
+      // Provision Roles & Permissions
+      let ownerRoleId: string | null = null;
+      if (template) {
+        for (const tRole of template.roles) {
+          const role = await tx.role.create({
+            data: {
+              tenantId: tenant.id,
+              name: tRole.code,
+              description: tRole.description,
+              isCustom: false,
+            },
+          });
 
-      // G. Map Permissions to Roles
-      // Owner gets all permissions
-      const ownerRolePermsData = Object.values(permissionsMap).map((permId) => ({
-        roleId: ownerRole.id,
-        permissionId: permId,
-      }));
-      await tx.rolePermission.createMany({ data: ownerRolePermsData });
+          if (tRole.code === 'OWNER') {
+            ownerRoleId = role.id;
+          }
 
-      // Admin gets view, create, edit
-      const adminPerms = Object.keys(permissionsMap)
-        .filter((key) => key.endsWith(':view') || key.endsWith(':create') || key.endsWith(':edit'))
-        .map((key) => ({ roleId: adminRole.id, permissionId: permissionsMap[key] }));
-      await tx.rolePermission.createMany({ data: adminPerms });
+          // Map permissions
+          const rolePermissionsToCreate: { roleId: string; permissionId: string }[] = [];
+          for (const tPerm of tRole.permissions) {
+            if (tPerm.action === '*') {
+              const matchedPerms = allPermissions.filter((p) => p.module === tPerm.module);
+              for (const mp of matchedPerms) {
+                rolePermissionsToCreate.push({
+                  roleId: role.id,
+                  permissionId: mp.id,
+                });
+              }
+            } else {
+              const permKey = `${tPerm.module}:${tPerm.action}`;
+              const permId = permissionsMap[permKey];
+              if (permId) {
+                rolePermissionsToCreate.push({
+                  roleId: role.id,
+                  permissionId: permId,
+                });
+              }
+            }
+          }
 
-      // Cashier gets view/create on sales & POS
-      const cashierPerms = Object.keys(permissionsMap)
-        .filter((key) => key.startsWith('sales:') || key.startsWith('pos:'))
-        .filter((key) => key.endsWith(':view') || key.endsWith(':create'))
-        .map((key) => ({ roleId: cashierRole.id, permissionId: permissionsMap[key] }));
-      await tx.rolePermission.createMany({ data: cashierPerms });
+          if (rolePermissionsToCreate.length > 0) {
+            await tx.rolePermission.createMany({
+              data: rolePermissionsToCreate,
+              skipDuplicates: true,
+            });
+          }
+        }
+      }
 
-      // H. Associate Owner User to Owner Role
-      await tx.userRole.create({
-        data: {
-          userId: ownerUser.id,
-          roleId: ownerRole.id,
-        },
-      });
+      // Associate Owner User to Owner Role
+      if (ownerRoleId) {
+        await tx.userRole.create({
+          data: {
+            userId: ownerUser.id,
+            roleId: ownerRoleId,
+          },
+        });
+      }
 
-      // I. Enable Default Modules based on pricing plan
-      const planFeatures = plan.features as Record<string, boolean>;
-      const tenantModulesToEnable = Object.keys(planFeatures)
-        .filter((modKey) => planFeatures[modKey])
-        .map((modKey) => ({
+      // Enable Modules based on the template
+      if (template) {
+        const tenantModulesToEnable = template.modules.map((m) => ({
           tenantId: tenant.id,
-          moduleId: modKey,
+          moduleId: m.moduleId,
           isEnabled: true,
         }));
-      
-      await tx.tenantModule.createMany({ data: tenantModulesToEnable });
+        await tx.tenantModule.createMany({ data: tenantModulesToEnable });
+      }
+
+      // Provision Dashboards
+      if (template) {
+        const dashboardWidgetsToCreate = template.dashboards.map((dash) => ({
+          tenantId: tenant.id,
+          userId: ownerUser.id,
+          widgetCode: dash.widgetCode,
+          widgetName: dash.widgetName,
+          gridPos: dash.gridPos || {},
+          isVisible: true,
+        }));
+        if (dashboardWidgetsToCreate.length > 0) {
+          await tx.tenantDashboardWidget.createMany({ data: dashboardWidgetsToCreate });
+        }
+      }
+
+      // Provision Workflows
+      if (template && template.workflows.length > 0) {
+        const workflowStatesToCreate = template.workflows.map((wf) => ({
+          tenantId: tenant.id,
+          entityType: wf.entityType,
+          stateCode: wf.stateCode,
+          stateName: wf.stateName,
+          sortOrder: wf.sortOrder,
+          isInitial: wf.isInitial,
+          isFinal: wf.isFinal,
+        }));
+        await tx.tenantWorkflowState.createMany({ data: workflowStatesToCreate });
+
+        // Generate transitions automatically based on sortOrder
+        const entityTypes = [...new Set(template.workflows.map((wf) => wf.entityType))];
+        for (const type of entityTypes) {
+          const typeStates = template.workflows
+            .filter((wf) => wf.entityType === type)
+            .sort((a, b) => a.sortOrder - b.sortOrder);
+          
+          const dbStates = await tx.tenantWorkflowState.findMany({
+            where: { tenantId: tenant.id, entityType: type },
+          });
+          const dbStatesMap: { [key: string]: string } = {};
+          for (const s of dbStates) {
+            dbStatesMap[s.stateCode] = s.id;
+          }
+
+          const transitionsToCreate: { tenantId: string; entityType: string; fromStateId: string; toStateId: string }[] = [];
+          for (let i = 0; i < typeStates.length - 1; i++) {
+            const fromStateId = dbStatesMap[typeStates[i].stateCode];
+            const toStateId = dbStatesMap[typeStates[i + 1].stateCode];
+            if (fromStateId && toStateId) {
+              transitionsToCreate.push({
+                tenantId: tenant.id,
+                entityType: type,
+                fromStateId,
+                toStateId,
+              });
+            }
+          }
+          if (transitionsToCreate.length > 0) {
+            await tx.tenantWorkflowTransition.createMany({ data: transitionsToCreate });
+          }
+        }
+      }
 
       return ownerUser;
     }, {
@@ -188,6 +304,15 @@ export class TenantService {
   async getProfile(tenantId: string) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
+      include: {
+        tenantModules: true,
+        dashboardWidgets: true,
+        workflowStates: {
+          orderBy: {
+            sortOrder: 'asc',
+          },
+        },
+      },
     });
     if (!tenant) throw new NotFoundException('Organization not found.');
     return tenant;
@@ -241,6 +366,17 @@ export class TenantService {
         email: true,
         status: true,
         roles: { include: { role: true } },
+      },
+    });
+  }
+
+  async getTemplates() {
+    return this.prisma.businessTemplate.findMany({
+      include: {
+        modules: true,
+        roles: { include: { permissions: true } },
+        dashboards: true,
+        workflows: true,
       },
     });
   }

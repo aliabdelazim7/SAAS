@@ -143,9 +143,22 @@ export class AuthService {
     });
     const rolesList = userRoles.map((ur) => ur.role.name);
 
+    // Fetch tenant details to include in JWT payload for frontend routing and UX customization
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { subdomain: true, industryType: true },
+    });
+
     // 1. Sign Access Token (JWT)
     const accessToken = await this.jwtService.signAsync(
-      { userId, tenantId, email, roles: rolesList },
+      { 
+        userId, 
+        tenantId, 
+        email, 
+        roles: rolesList,
+        subdomain: tenant?.subdomain,
+        industryType: tenant?.industryType
+      },
       {
         secret: process.env.JWT_ACCESS_SECRET || 'default-access-secret-key-change-in-prod',
         expiresIn: '15m',
