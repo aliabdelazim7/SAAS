@@ -328,6 +328,7 @@ export class TenantService {
         name: updateDto.name,
         industryType: updateDto.industry,
         customDomain: updateDto.logo, // Placeholder mapping or extension
+        currency: updateDto.currency,
       },
     });
   }

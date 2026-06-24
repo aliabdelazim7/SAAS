@@ -5,4 +5,5 @@ export * from './product.dto';
 export * from './warehouse.dto';
 export * from './invoice.dto';
 export * from './expense.dto';
+export * from './business-entities.dto';
 

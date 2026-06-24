@@ -31,7 +31,8 @@ import {
   Briefcase,
   Cpu,
   Layers,
-  Calendar
+  Calendar,
+  Settings
 } from "lucide-react";
 
 const getApiUrl = () => {
@@ -86,32 +87,54 @@ export default function Home() {
   const [expenses, setExpenses] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
 
-  // --- TEMPLATE-SPECIFIC INTERACTIVE DATA (SEEDED IN UI) ---
-  const [projects, setProjects] = useState<any[]>([
-    { id: "p1", name: "مطبخ خشب زان فيلا الياسمين", client: "أحمد العتيبي", status: "PRODUCTION", date: "2026-06-24", amount: 15000, measurements: "3.2م * 2.8م * 0.9م", notes: "تجهيز ألواح الخشب والأبواب الهيدروليكية" },
-    { id: "p2", name: "صالون كلاسيكي مغطى بالحرير", client: "سارة الشمري", status: "MEASUREMENT_VISIT", date: "2026-06-25", amount: 8500, measurements: "قيد المراجعة في الزيارة", notes: "موعد الزيارة غداً الساعة 4 عصراً" },
-    { id: "p3", name: "أبواب ألمنيوم ونوافذ دبل جلاس", client: "شركة المجد للمقاولات", status: "LEAD", date: "2026-06-24", amount: 32000, measurements: "لم تحدد بعد", notes: "متابعة العرض الفني المقدم" }
-  ]);
+  // --- TEMPLATE-SPECIFIC INTERACTIVE DATA (SEEDED IN DB) ---
+  const [projects, setProjects] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [productionOrders, setProductionOrders] = useState<any[]>([]);
+  const [serviceTasks, setServiceTasks] = useState<any[]>([]);
+  const [vehicles, setVehicles] = useState<any[]>([]);
 
-  const [appointments, setAppointments] = useState<any[]>([
-    { id: "a1", vehicle: "تويوتا كامري 2023 (أ ب ج 1234)", service: "فحص 10,000 كم + غيار زيت", status: "REPAIR", time: "10:30 ص", advisor: "سعود القحطاني", mechanic: "م. أشرف عبد العزيز", cost: 350 },
-    { id: "a2", vehicle: "هيونداي سوناتا 2021 (د هـ و 5678)", service: "إصلاح تكييف + شحن فريون", status: "INSPECTION", time: "11:45 ص", advisor: "سعود القحطاني", mechanic: "م. محمد علي", cost: 680 },
-    { id: "a3", vehicle: "لكزس ES 2022 (س ص ع 9999)", service: "تغيير فحمات الفرامل الأمامية", status: "DELIVERY", time: "02:00 م", advisor: "خالد الحربي", mechanic: "م. رامي فايز", cost: 1200 }
-  ]);
+  // --- SUPPLIERS & PURCHASES STATE ---
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [purchases, setPurchases] = useState<any[]>([]);
+  const [showSuppliersModal, setShowSuppliersModal] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [newSupplierName, setNewSupplierName] = useState("");
+  const [newSupplierEmail, setNewSupplierEmail] = useState("");
+  const [newSupplierPhone, setNewSupplierPhone] = useState("");
+  const [newSupplierTax, setNewSupplierTax] = useState("");
+  const [newSupplierAddress, setNewSupplierAddress] = useState("");
+  
+  const [purchaseSupplierId, setPurchaseSupplierId] = useState("");
+  const [purchaseWarehouseId, setPurchaseWarehouseId] = useState("");
+  const [purchaseOrderNum, setPurchaseOrderNum] = useState("");
+  const [purchaseVariantId, setPurchaseVariantId] = useState("");
+  const [purchaseQty, setPurchaseQty] = useState(10);
+  const [purchaseCost, setPurchaseCost] = useState(5.0);
+  const [purchaseNotes, setPurchaseNotes] = useState("");
+  const [purchaseDate, setPurchaseDate] = useState(() => new Date().toISOString().split("T")[0]);
 
-  const [productionOrders, setProductionOrders] = useState<any[]>([
-    { id: "po1", product: "قمصان قطنية فاخرة - دفعة 500", rawMaterials: "خيوط قطن، أزرار، ملصقات ماركة", status: "MANUFACTURING", quantity: 500, machine: "ماكينة الخياطة الدائرية A", supervisor: "م. محمود جلال" },
-    { id: "po2", product: "علب كرتون مضلع للتعبئة", rawMaterials: "ألواح كرتون خام، غراء سائل", status: "FINISHED_GOODS", quantity: 2000, machine: "خط الكبس والتعبئة B", supervisor: "م. سامي فرحات" },
-    { id: "po3", product: "أكياس تغليف بلاستيك معزول", rawMaterials: "حبيبات بولي إيثيلين، صبغات ألوان", status: "RAW_MATERIALS", quantity: 10000, machine: "خط سحب البلاستيك C", supervisor: "م. أحمد الشافعي" }
-  ]);
+  // --- GARAGE WORKSHOP STATE ---
+  const [appCustomer, setAppCustomer] = useState("");
 
-  const [serviceTasks, setServiceTasks] = useState<any[]>([
-    { id: "t1", title: "تصميم الهوية البصرية للعلامة التجارية", client: "مطاعم الشرفة", status: "PROJECT_SETUP", assignee: "فريق التصميم الداخلي", deadline: "2026-07-05", budget: 7500 },
-    { id: "t2", title: "تطوير متجر سلة إلكتروني وتكامله", client: "مؤسسة الأناقة", status: "BILLING", assignee: "م. عمر السعيد", deadline: "2026-06-28", budget: 12000 },
-    { id: "t3", title: "حملة إعلانات تيك توك وسناب شات", client: "مركز تجميل ريفان", status: "LEAD", assignee: "قسم التسويق الرقمي", deadline: "2026-07-10", budget: 4500 }
-  ]);
+  // --- SETTINGS STATE ---
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsName, setSettingsName] = useState("");
+  const [settingsCurrency, setSettingsCurrency] = useState("USD");
+  const [settingsLoading, setSettingsLoading] = useState(false);
 
   // --- UI NAVIGATION & GENERAL STATE ---
+  const formatMoney = (amount: number | string) => {
+    const numericAmount = typeof amount === "string" ? Number(amount) : amount;
+    const currency = tenantProfile?.currency || "SAR";
+    let symbol = currency;
+    if (currency === "USD") symbol = "$";
+    else if (currency === "SAR") symbol = "ر.س";
+    else if (currency === "EGP") symbol = "ج.م";
+    else if (currency === "AED") symbol = "د.إ";
+    return `${numericAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${symbol}`;
+  };
+
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -350,6 +373,8 @@ export default function Home() {
       if (profileRes.ok) {
         const profileData = await profileRes.json();
         setTenantProfile(profileData);
+        setSettingsName(profileData.name || "");
+        setSettingsCurrency(profileData.currency || "USD");
       }
 
       // 1. Fetch Customers
@@ -374,6 +399,9 @@ export default function Home() {
         if (whData.length > 0 && !posWarehouseId) {
           setPosWarehouseId(whData[0].id);
         }
+        if (whData.length > 0 && !purchaseWarehouseId) {
+          setPurchaseWarehouseId(whData[0].id);
+        }
       }
 
       // 4. Fetch Invoices
@@ -389,6 +417,83 @@ export default function Home() {
         const expData = await expRes.json();
         setExpenses(expData);
       }
+
+      // 6. Fetch Suppliers
+      const supRes = await fetch(`${API_BASE_URL}/suppliers`, { headers });
+      if (supRes.ok) {
+        const supData = await supRes.json();
+        setSuppliers(supData);
+      }
+
+      // 7. Fetch Purchases
+      const purRes = await fetch(`${API_BASE_URL}/purchases`, { headers });
+      if (purRes.ok) {
+        const purData = await purRes.json();
+        setPurchases(purData);
+      }
+
+      // 8. Fetch Vehicles
+      const vehRes = await fetch(`${API_BASE_URL}/vehicles`, { headers });
+      if (vehRes.ok) {
+        const vehData = await vehRes.json();
+        setVehicles(vehData);
+      }
+
+      // 9. Fetch Production Orders
+      const productionRes = await fetch(`${API_BASE_URL}/production`, { headers });
+      if (productionRes.ok) {
+        const prodOrdersData = await productionRes.json();
+        setProductionOrders(prodOrdersData.map((po: any) => ({
+          id: po.id,
+          product: po.productName,
+          rawMaterials: po.rawMaterials,
+          status: po.status,
+          quantity: po.quantity,
+          machine: po.machineName,
+          supervisor: po.supervisorName
+        })));
+      }
+
+      // 10. Fetch Projects & Work Orders
+      const projectsRes = await fetch(`${API_BASE_URL}/projects`, { headers });
+      if (projectsRes.ok) {
+        const projData = await projectsRes.json();
+        
+        // Custom Furniture/General projects (where vehicleId is null)
+        setProjects(projData.filter((p: any) => p.vehicleId === null).map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          client: p.customer?.name || "عميل غير معروف",
+          amount: Number(p.amount),
+          measurements: p.measurements?.text || "لم تسجل مقاسات بعد",
+          notes: p.notes,
+          status: p.status,
+          date: new Date(p.createdAt).toISOString().split("T")[0]
+        })));
+
+        // Car repair appointments (where vehicleId is NOT null)
+        setAppointments(projData.filter((p: any) => p.vehicleId !== null).map((p: any) => ({
+          id: p.id,
+          vehicle: p.vehicle ? `${p.vehicle.brand} ${p.vehicle.model} (${p.vehicle.plateNumber})` : "سيارة عميل",
+          service: p.name,
+          status: p.status,
+          time: new Date(p.createdAt).toLocaleTimeString("ar-SA", { hour: '2-digit', minute: '2-digit' }),
+          advisor: p.notes || "سعود القحطاني",
+          mechanic: p.description || "م. أشرف عبد العزيز",
+          cost: Number(p.amount)
+        })));
+
+        // Service Tasks
+        setServiceTasks(projData.filter((p: any) => p.vehicleId === null).map((p: any) => ({
+          id: p.id,
+          title: p.name,
+          client: p.customer?.name || "عميل غير معروف",
+          status: p.status,
+          assignee: p.description || "قيد التعيين",
+          deadline: p.notes || "لم يحدد موعد",
+          budget: Number(p.amount)
+        })));
+      }
     } catch (err: any) {
       setErrorMsg("فشلت عملية مزامنة البيانات مع الخادم الرئيسي.");
     } finally {
@@ -401,66 +506,250 @@ export default function Home() {
     setTimeout(() => setSuccessMsg(null), 5000);
   };
 
-  // --- TEMPLATE ACTIONS ---
-  const createProject = (e: React.FormEvent) => {
+  // --- TEMPLATE ACTIONS (SAVED IN CLOUD DB) ---
+  const createProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newProj = {
-      id: "p_" + Date.now(),
-      name: projName,
-      client: projClient,
-      amount: Number(projAmount),
-      measurements: projMeas || "لم تحدد بعد",
-      notes: projNotes,
-      status: "LEAD",
-      date: new Date().toISOString().split("T")[0]
-    };
-    setProjects(prev => [newProj, ...prev]);
-    setShowAddProject(false);
-    setProjName("");
-    setProjClient("");
-    setProjAmount(5000);
-    setProjMeas("");
-    setProjNotes("");
-    showTemporarySuccess("تم تسجيل المشروع الجديد وإضافته لمرحلة التواصل بنجاح!");
+    if (!token) return;
+    if (!projClient) {
+      setErrorMsg("يرجى اختيار عميل أولاً للمشروع.");
+      return;
+    }
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          customerId: projClient,
+          name: projName,
+          amount: Number(projAmount),
+          measurements: projMeas ? { text: projMeas } : undefined,
+          notes: projNotes,
+          status: "LEAD"
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "فشلت عملية حفظ المشروع.");
+
+      setShowAddProject(false);
+      setProjName("");
+      setProjClient("");
+      setProjAmount(5000);
+      setProjMeas("");
+      setProjNotes("");
+      fetchAllData();
+      showTemporarySuccess("تم تسجيل المشروع الجديد وحفظه بنجاح!");
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    }
   };
 
-  const createAppointment = (e: React.FormEvent) => {
+  const createAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newApp = {
-      id: "a_" + Date.now(),
-      vehicle: appVehicle,
-      service: appService,
-      status: "VEHICLE_CHECK_IN",
-      time: new Date().toLocaleTimeString("ar-SA", { hour: '2-digit', minute: '2-digit' }),
-      advisor: appAdvisor,
-      mechanic: appMechanic,
-      cost: Number(appCost)
-    };
-    setAppointments(prev => [newApp, ...prev]);
-    setShowAddAppointment(false);
-    setAppVehicle("");
-    setAppService("");
-    setAppCost(500);
-    showTemporarySuccess("تم استلام السيارة بنجاح وإصدار بطاقة الصيانة!");
+    if (!token) return;
+    if (!appCustomer) {
+      setErrorMsg("يرجى اختيار عميل صيانة.");
+      return;
+    }
+    setErrorMsg(null);
+    try {
+      // 1. Create vehicle
+      const vehRes = await fetch(`${API_BASE_URL}/vehicles`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          customerId: appCustomer,
+          plateNumber: appVehicle,
+          brand: "سيارة",
+          model: "عميل",
+          year: new Date().getFullYear(),
+          notes: "سجلت تلقائياً"
+        })
+      });
+      const vehData = await vehRes.json();
+      if (!vehRes.ok) throw new Error(vehData.message || "فشل إدراج مركبة الصيانة.");
+
+      // 2. Create work order project
+      const projRes = await fetch(`${API_BASE_URL}/projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          customerId: appCustomer,
+          vehicleId: vehData.id,
+          name: appService,
+          amount: Number(appCost),
+          notes: appAdvisor,
+          description: appMechanic,
+          status: "VEHICLE_CHECK_IN"
+        })
+      });
+      const projData = await projRes.json();
+      if (!projRes.ok) throw new Error(projData.message || "فشل تسجيل كارت الصيانة.");
+
+      setShowAddAppointment(false);
+      setAppVehicle("");
+      setAppService("");
+      setAppCost(500);
+      setAppCustomer("");
+      fetchAllData();
+      showTemporarySuccess("تم استلام السيارة بنجاح وحفظها بقاعدة البيانات!");
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    }
   };
 
-  const createProductionOrder = (e: React.FormEvent) => {
+  const createProductionOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newPO = {
-      id: "po_" + Date.now(),
-      product: prodOrdProduct,
-      rawMaterials: prodOrdMaterials,
-      status: "RAW_MATERIALS",
-      quantity: Number(prodOrdQty),
-      machine: prodOrdMachine,
-      supervisor: prodOrdSupervisor
-    };
-    setProductionOrders(prev => [newPO, ...prev]);
-    setShowAddProduction(false);
-    setProdOrdProduct("");
-    setProdOrdMaterials("");
-    setProdOrdQty(100);
-    showTemporarySuccess("تم إصدار أمر التشغيل وبدء تحضير الخامات بنجاح!");
+    if (!token) return;
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/production`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          productName: prodOrdProduct,
+          rawMaterials: prodOrdMaterials,
+          quantity: Number(prodOrdQty),
+          machineName: prodOrdMachine,
+          supervisorName: prodOrdSupervisor,
+          status: "RAW_MATERIALS"
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "فشل تشغيل أمر الإنتاج.");
+
+      setShowAddProduction(false);
+      setProdOrdProduct("");
+      setProdOrdMaterials("");
+      setProdOrdQty(100);
+      fetchAllData();
+      showTemporarySuccess("تم إطلاق أمر الإنتاج وحفظه سحابياً بنجاح!");
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    }
+  };
+
+  // --- SUPPLIER & PURCHASES API ACTIONS ---
+  const createSupplier = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/suppliers`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: newSupplierName,
+          email: newSupplierEmail || undefined,
+          phone: newSupplierPhone || undefined,
+          taxNumber: newSupplierTax || undefined,
+          address: newSupplierAddress || undefined
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "تعذر حفظ المورد.");
+
+      setShowSuppliersModal(false);
+      setNewSupplierName("");
+      setNewSupplierEmail("");
+      setNewSupplierPhone("");
+      setNewSupplierTax("");
+      setNewSupplierAddress("");
+      fetchAllData();
+      showTemporarySuccess("تم إدراج المورد الجديد بنجاح!");
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    }
+  };
+
+  const createPurchase = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    if (!purchaseSupplierId || !purchaseWarehouseId || !purchaseVariantId) {
+      setErrorMsg("يرجى ملء جميع الحقول المطلوبة للتوريد.");
+      return;
+    }
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/purchases`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          supplierId: purchaseSupplierId,
+          warehouseId: purchaseWarehouseId,
+          orderNumber: purchaseOrderNum || `PO-${Date.now().toString().slice(-6)}`,
+          issueDate: purchaseDate,
+          items: [{
+            variantId: purchaseVariantId,
+            quantity: Number(purchaseQty),
+            unitCost: Number(purchaseCost),
+            taxRate: 15.00
+          }]
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "فشلت عملية التوريد.");
+
+      setShowPurchaseModal(false);
+      setPurchaseSupplierId("");
+      setPurchaseVariantId("");
+      setPurchaseQty(10);
+      setPurchaseCost(5.0);
+      setPurchaseNotes("");
+      fetchAllData();
+      showTemporarySuccess("تم استلام الشحنة وتحديث رصيد المخزن والمالية فوراً!");
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    }
+  };
+
+  // --- SAVE SETTINGS ACTION ---
+  const saveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    setSettingsLoading(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/tenant/profile`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: settingsName,
+          currency: settingsCurrency
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "فشل تعديل إعدادات المنشأة.");
+
+      setShowSettingsModal(false);
+      fetchAllData();
+      showTemporarySuccess("تم تحديث إعدادات المنشأة وتغيير العملة بنجاح!");
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    } finally {
+      setSettingsLoading(false);
+    }
   };
 
   // --- ACTIONS ---
@@ -836,7 +1125,7 @@ export default function Home() {
               <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">إجمالي قيم المشاريع</span>
               <Coins className="w-6 h-6 text-emerald-500" />
             </div>
-            <p className="text-3xl font-black text-emerald-600 mt-3 font-mono">${totalEstimatedAmt.toLocaleString()}</p>
+            <p className="text-3xl font-black text-emerald-600 mt-3 font-mono">{formatMoney(totalEstimatedAmt)}</p>
             <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
               <span>القيمة التقديرية التعاقدية</span>
             </div>
@@ -895,7 +1184,7 @@ export default function Home() {
               <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">دخل الصيانة الإجمالي</span>
               <Coins className="w-6 h-6 text-emerald-500" />
             </div>
-            <p className="text-3xl font-black text-emerald-600 mt-3 font-mono">${totalRevenue.toLocaleString()}</p>
+            <p className="text-3xl font-black text-emerald-600 mt-3 font-mono">{formatMoney(totalRevenue)}</p>
             <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
               <span>الفواتير وأوامر الصيانة الحالية</span>
             </div>
@@ -1011,7 +1300,7 @@ export default function Home() {
               <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">ميزانية العقود الحالية</span>
               <Coins className="w-6 h-6 text-emerald-500" />
             </div>
-            <p className="text-3xl font-black text-emerald-600 mt-3 font-mono">${totalBudget.toLocaleString()}</p>
+            <p className="text-3xl font-black text-emerald-600 mt-3 font-mono">{formatMoney(totalBudget)}</p>
             <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
               <span>إجمالي قيمة المشروعات النشطة</span>
             </div>
@@ -1041,7 +1330,7 @@ export default function Home() {
             <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">إجمالي المبيعات</span>
             <Coins className="w-6 h-6 text-indigo-500" />
           </div>
-          <p className="text-3xl font-black text-slate-900 mt-3 font-mono">${totalSales.toFixed(2)}</p>
+          <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{formatMoney(totalSales)}</p>
           <div className="flex items-center gap-1.5 mt-3 text-xs text-indigo-600 font-bold">
             <TrendingUp className="w-4 h-4" />
             <span>مباشر من نقاط البيع</span>
@@ -1054,7 +1343,7 @@ export default function Home() {
             <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">إجمالي المصروفات</span>
             <DollarSign className="w-6 h-6 text-rose-500" />
           </div>
-          <p className="text-3xl font-black text-slate-900 mt-3 font-mono">${totalExpenses.toFixed(2)}</p>
+          <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{formatMoney(totalExpenses)}</p>
           <div className="flex items-center gap-1.5 mt-3 text-xs text-slate-500 font-bold">
             <span>المصاريف والتشغيل العام</span>
           </div>
@@ -1089,48 +1378,127 @@ export default function Home() {
     );
   };
 
-  const advanceProjectStatus = (id: string) => {
+  const advanceProjectStatus = async (id: string) => {
+    if (!token) return;
+    const project = projects.find(p => p.id === id);
+    if (!project) return;
+    
     const statusFlow = ["LEAD", "MEASUREMENT_VISIT", "QUOTATION", "APPROVAL", "PRODUCTION", "INSTALLATION", "DELIVERY", "COMPLETED"];
-    setProjects(prev => prev.map(p => {
-      if (p.id !== id) return p;
-      const idx = statusFlow.indexOf(p.status);
-      const nextStatus = idx < statusFlow.length - 1 ? statusFlow[idx + 1] : statusFlow[0];
-      showTemporarySuccess(`تم نقل المشروع "${p.name}" إلى مرحلة (${getStatusTextArabic(nextStatus)})`);
-      return { ...p, status: nextStatus };
-    }));
+    const idx = statusFlow.indexOf(project.status);
+    const nextStatus = idx < statusFlow.length - 1 ? statusFlow[idx + 1] : statusFlow[0];
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/projects/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: nextStatus })
+      });
+      if (res.ok) {
+        fetchAllData();
+        showTemporarySuccess(`تم نقل المشروع "${project.name}" إلى مرحلة (${getStatusTextArabic(nextStatus)})`);
+      } else {
+        const data = await res.json();
+        throw new Error(data.message || "فشل تحديث حالة المشروع.");
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    }
   };
 
-  const advanceAppointmentStatus = (id: string) => {
+  const advanceAppointmentStatus = async (id: string) => {
+    if (!token) return;
+    // For appointments, the ID corresponds to the project ID
     const statusFlow = ["VEHICLE_CHECK_IN", "INSPECTION", "QUOTATION", "APPROVAL", "REPAIR", "QUALITY_CHECK", "DELIVERY"];
-    setAppointments(prev => prev.map(a => {
-      if (a.id !== id) return a;
-      const idx = statusFlow.indexOf(a.status);
-      const nextStatus = idx < statusFlow.length - 1 ? statusFlow[idx + 1] : statusFlow[0];
-      showTemporarySuccess(`تم نقل مركبة "${a.vehicle}" إلى مرحلة (${getStatusTextArabic(nextStatus)})`);
-      return { ...a, status: nextStatus };
-    }));
+    
+    // Find in appointments to get the current status
+    const app = appointments.find(a => a.id === id);
+    if (!app) return;
+
+    const idx = statusFlow.indexOf(app.status);
+    const nextStatus = idx < statusFlow.length - 1 ? statusFlow[idx + 1] : statusFlow[0];
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/projects/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: nextStatus })
+      });
+      if (res.ok) {
+        fetchAllData();
+        showTemporarySuccess(`تم نقل مركبة "${app.vehicle}" إلى مرحلة (${getStatusTextArabic(nextStatus)})`);
+      } else {
+        const data = await res.json();
+        throw new Error(data.message || "فشل تحديث كارت صيانة السيارة.");
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    }
   };
 
-  const advanceProductionStatus = (id: string) => {
+  const advanceProductionStatus = async (id: string) => {
+    if (!token) return;
+    const order = productionOrders.find(po => po.id === id);
+    if (!order) return;
+
     const statusFlow = ["RAW_MATERIALS", "PRODUCTION_ORDER", "MANUFACTURING", "QUALITY_CHECK", "PACKAGING", "FINISHED_GOODS", "DELIVERY"];
-    setProductionOrders(prev => prev.map(po => {
-      if (po.id !== id) return po;
-      const idx = statusFlow.indexOf(po.status);
-      const nextStatus = idx < statusFlow.length - 1 ? statusFlow[idx + 1] : statusFlow[0];
-      showTemporarySuccess(`تم نقل أمر إنتاج "${po.product}" إلى مرحلة (${getStatusTextArabic(nextStatus)})`);
-      return { ...po, status: nextStatus };
-    }));
+    const idx = statusFlow.indexOf(order.status);
+    const nextStatus = idx < statusFlow.length - 1 ? statusFlow[idx + 1] : statusFlow[0];
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/production/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: nextStatus })
+      });
+      if (res.ok) {
+        fetchAllData();
+        showTemporarySuccess(`تم نقل أمر إنتاج "${order.product}" إلى مرحلة (${getStatusTextArabic(nextStatus)})`);
+      } else {
+        const data = await res.json();
+        throw new Error(data.message || "فشل تحديث أمر الإنتاج.");
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    }
   };
 
-  const advanceServiceTaskStatus = (id: string) => {
+  const advanceServiceTaskStatus = async (id: string) => {
+    if (!token) return;
+    const task = serviceTasks.find(t => t.id === id);
+    if (!task) return;
+
     const statusFlow = ["LEAD", "QUALIFICATION", "PROPOSAL", "CONTRACT", "PROJECT_SETUP", "BILLING", "COMPLETED"];
-    setServiceTasks(prev => prev.map(t => {
-      if (t.id !== id) return t;
-      const idx = statusFlow.indexOf(t.status);
-      const nextStatus = idx < statusFlow.length - 1 ? statusFlow[idx + 1] : statusFlow[0];
-      showTemporarySuccess(`تم نقل المشروع الخدمي "${t.title}" إلى مرحلة (${getStatusTextArabic(nextStatus)})`);
-      return { ...t, status: nextStatus };
-    }));
+    const idx = statusFlow.indexOf(task.status);
+    const nextStatus = idx < statusFlow.length - 1 ? statusFlow[idx + 1] : statusFlow[0];
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/projects/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: nextStatus })
+      });
+      if (res.ok) {
+        fetchAllData();
+        showTemporarySuccess(`تم نقل المهمة الخدمية "${task.title}" إلى مرحلة (${getStatusTextArabic(nextStatus)})`);
+      } else {
+        const data = await res.json();
+        throw new Error(data.message || "فشل تحديث حالة المهمة الخدمية.");
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    }
   };
 
   const getStatusTextArabic = (status: string) => {
@@ -1274,7 +1642,7 @@ export default function Home() {
                     <p className="text-xs text-slate-400 font-bold italic">{p.notes}</p>
                   </div>
                   <div className="text-left shrink-0">
-                    <p className="text-lg font-black text-slate-900 font-mono">${p.amount.toLocaleString()}</p>
+                    <p className="text-lg font-black text-slate-900 font-mono">{formatMoney(p.amount)}</p>
                     <p className="text-[10px] text-slate-400 font-bold mt-1">المرحلة التالية ➔</p>
                   </div>
                 </div>
@@ -1349,7 +1717,7 @@ export default function Home() {
                     <p className="text-xs text-slate-400 font-bold">طلب الصيانة: {a.service}</p>
                   </div>
                   <div className="text-left shrink-0">
-                    <p className="text-lg font-black text-slate-900 font-mono">${a.cost.toLocaleString()}</p>
+                    <p className="text-lg font-black text-slate-900 font-mono">{formatMoney(a.cost)}</p>
                     <p className="text-[10px] text-slate-400 font-bold mt-1">تحديث المرحلة ➔</p>
                   </div>
                 </div>
@@ -1511,7 +1879,7 @@ export default function Home() {
                     <p className="text-xs text-slate-400 font-bold">تاريخ التسليم الأقصى: {t.deadline}</p>
                   </div>
                   <div className="text-left shrink-0">
-                    <p className="text-lg font-black text-slate-900 font-mono">${t.budget.toLocaleString()}</p>
+                    <p className="text-lg font-black text-slate-900 font-mono">{formatMoney(t.budget)}</p>
                     <p className="text-[10px] text-slate-400 font-bold mt-1">المرحلة التالية ➔</p>
                   </div>
                 </div>
@@ -1604,7 +1972,7 @@ export default function Home() {
                       <td className="py-4.5 text-xs font-bold text-slate-500">
                         {inv.paymentMethod === "CARD" ? "مدى / بطاقة" : inv.paymentMethod === "CASH" ? "نقدي" : "تحويل بنكي"}
                       </td>
-                      <td className="py-4.5 text-left font-black text-slate-900 font-mono text-base">${Number(inv.grandTotal).toFixed(2)}</td>
+                      <td className="py-4.5 text-left font-black text-slate-900 font-mono text-base">{formatMoney(inv.grandTotal)}</td>
                       <td className="py-4.5 text-center">
                         <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                           inv.status === "PAID" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
@@ -2036,6 +2404,14 @@ export default function Home() {
           </div>
 
           <button
+            onClick={() => setShowSettingsModal(true)}
+            className="p-3 border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 hover:text-indigo-650 rounded-xl transition-all cursor-pointer shadow-sm"
+            title="إعدادات المنشأة"
+          >
+            <Settings className="w-5 h-5 text-slate-500 hover:text-indigo-600" />
+          </button>
+
+          <button
             onClick={handleLogout}
             className="p-3 border border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-xl transition-all cursor-pointer shadow-sm"
             title="تسجيل الخروج"
@@ -2277,7 +2653,7 @@ export default function Home() {
                               <span className="block text-slate-500 text-xs font-mono">{cust.phone || "بدون رقم جوال"}</span>
                             </td>
                             <td className="px-6 py-4.5 font-mono text-slate-700 font-medium">{cust.taxNumber || "—"}</td>
-                            <td className="px-6 py-4.5 font-extrabold text-slate-900 font-mono text-base">${Number(cust.creditLimit).toFixed(2)}</td>
+                            <td className="px-6 py-4.5 font-extrabold text-slate-900 font-mono text-base">{formatMoney(cust.creditLimit)}</td>
                             <td className="px-6 py-4.5">
                               <span className={`font-black font-mono text-base ${Number(cust.outstandingBalance) > 0 ? "text-amber-600" : "text-emerald-600"}`}>
                                 ${Number(cust.outstandingBalance).toFixed(2)}
@@ -2299,18 +2675,34 @@ export default function Home() {
           {/* TAB CONTENT: 3. PRODUCT CATALOG */}
           {activeTab === "products" && (
             <div className="space-y-6 text-right">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-2xl font-black text-slate-900">دليل المنتجات والمستودع</h2>
                   <p className="text-sm text-slate-500 mt-1">عرض وتصنيف السلع المتوفرة، تكلفة الشراء، أسعار البيع وتتبع الباركود (UPC)</p>
                 </div>
-                <button
-                  onClick={() => setShowAddProduct(true)}
-                  className="flex items-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-sm font-bold shadow-lg shadow-indigo-600/10 transition-all cursor-pointer active:scale-[0.98]"
-                >
-                  <PlusCircle className="w-5 h-5" />
-                  <span>إضافة منتج جديد</span>
-                </button>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={() => setShowSuppliersModal(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-sm font-bold shadow-sm transition-all cursor-pointer active:scale-[0.98]"
+                  >
+                    <Users className="w-4.5 h-4.5 text-slate-500" />
+                    <span>إدارة الموردين</span>
+                  </button>
+                  <button
+                    onClick={() => setShowPurchaseModal(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 border border-emerald-250 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-sm font-bold shadow-sm transition-all cursor-pointer active:scale-[0.98]"
+                  >
+                    <PlusCircle className="w-4.5 h-4.5 text-emerald-600" />
+                    <span>تسجيل توريد مخزني</span>
+                  </button>
+                  <button
+                    onClick={() => setShowAddProduct(true)}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-md shadow-indigo-600/10 transition-all cursor-pointer active:scale-[0.98]"
+                  >
+                    <PlusCircle className="w-4.5 h-4.5" />
+                    <span>إضافة منتج جديد</span>
+                  </button>
+                </div>
               </div>
 
               {/* PRODUCTS LISTING */}
@@ -2350,7 +2742,7 @@ export default function Home() {
                             </div>
 
                             <div className="text-left shrink-0 space-y-1">
-                              <p className="font-black text-slate-900 font-mono text-base">${Number(v.price).toFixed(2)}</p>
+                              <p className="font-black text-slate-900 font-mono text-base">{formatMoney(v.price)}</p>
                               <p className="text-xs text-slate-500 font-mono font-bold">التكلفة: ${Number(v.costPrice).toFixed(2)}</p>
                               <div className="mt-2 flex justify-end flex-wrap gap-1">
                                 {v.balances && v.balances.length > 0 ? (
@@ -2412,7 +2804,32 @@ export default function Home() {
                   <input
                     type="text"
                     value={posSearchQuery}
-                    onChange={(e) => setPosSearchQuery(e.target.value)}
+                    onChange={(e) => {
+                      const query = e.target.value;
+                      setPosSearchQuery(query);
+                      
+                      // Check for exact barcode or SKU match
+                      if (query.trim()) {
+                        const trimmed = query.trim().toLowerCase();
+                        for (const p of products) {
+                          if (p.variants) {
+                            for (const v of p.variants) {
+                              const stockBal = v.balances?.find((b: any) => b.warehouseId === posWarehouseId)?.quantity || 0;
+                              if (Number(stockBal) > 0) {
+                                const skuMatch = v.sku && v.sku.toLowerCase() === trimmed;
+                                const barcodeMatch = v.barcode && v.barcode.toLowerCase() === trimmed;
+                                if (skuMatch || barcodeMatch) {
+                                  addToCart(p, v);
+                                  setPosSearchQuery("");
+                                  showTemporarySuccess(`تمت إضافة ${p.name} تلقائياً للسلة!`);
+                                  return;
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }}
                     className="w-full bg-white border border-slate-300 rounded-2xl pr-12 pl-4 py-4 text-base text-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 placeholder-slate-450 text-right font-medium"
                     placeholder="ابحث باسم السلعة، رقم الكود المخزني (SKU) أو الباركود..."
                   />
@@ -2449,7 +2866,7 @@ export default function Home() {
                               <p className="text-xs text-slate-500 font-mono mt-1 text-right font-medium">SKU: {v.sku}</p>
                             </div>
                             <div className="flex justify-between items-center mt-5 pt-3 border-t border-slate-100">
-                              <span className="font-black text-base text-emerald-600 font-mono">${Number(v.price).toFixed(2)}</span>
+                              <span className="font-black text-base text-emerald-600 font-mono">{formatMoney(v.price)}</span>
                               {Number(stockBal) > 0 && (
                                 <span className="text-xs text-emerald-650 font-extrabold flex items-center gap-1 bg-emerald-50 px-3.5 py-1.5 rounded-xl hover:bg-emerald-600 hover:text-white transition-all cursor-pointer">
                                   إضافة للسلة
@@ -2483,7 +2900,7 @@ export default function Home() {
                         >
                           <option value="">عميل نقدي عابر (افتراضي)</option>
                           {customers.map((c) => (
-                            <option key={c.id} value={c.id}>{c.name} (رصيد مستحق: ${Number(c.outstandingBalance).toFixed(2)})</option>
+                            <option key={c.id} value={c.id}>{c.name} (رصيد مستحق: {formatMoney(c.outstandingBalance)})</option>
                           ))}
                         </select>
                       </div>
@@ -2517,7 +2934,7 @@ export default function Home() {
                               >
                                 +
                               </button>
-                              <span className="font-black text-slate-900 text-sm ms-3 font-mono">${(item.unitPrice * item.quantity).toFixed(2)}</span>
+                              <span className="font-black text-slate-900 text-sm ms-3 font-mono">{formatMoney(item.unitPrice * item.quantity)}</span>
                             </div>
                           </div>
                         ))}
@@ -2530,15 +2947,15 @@ export default function Home() {
                     <div className="space-y-2.5 text-sm">
                       <div className="flex justify-between text-slate-500 font-bold">
                         <span>المجموع الفرعي (قبل الضريبة)</span>
-                        <span className="font-bold font-mono text-slate-800">${calculateCartSubtotal().toFixed(2)}</span>
+                        <span className="font-bold font-mono text-slate-800">{formatMoney(calculateCartSubtotal())}</span>
                       </div>
                       <div className="flex justify-between text-slate-500 font-bold">
                         <span>ضريبة القيمة المضافة (15.00% VAT)</span>
-                        <span className="font-bold font-mono text-slate-800">${calculateCartTax().toFixed(2)}</span>
+                        <span className="font-bold font-mono text-slate-800">{formatMoney(calculateCartTax())}</span>
                       </div>
                       <div className="flex justify-between text-slate-900 font-extrabold text-base pt-3 border-t border-slate-100">
                         <span>المجموع النهائي الإجمالي</span>
-                        <span className="text-emerald-600 font-black font-mono text-lg">${calculateCartTotal().toFixed(2)}</span>
+                        <span className="text-emerald-600 font-black font-mono text-lg">{formatMoney(calculateCartTotal())}</span>
                       </div>
                     </div>
 
@@ -2717,7 +3134,7 @@ export default function Home() {
                         <p className="text-slate-500">العميل: {p.client}</p>
                         {p.measurements && <p className="text-indigo-600 font-mono">المقاس: {p.measurements}</p>}
                         <div className="flex justify-between items-center pt-2">
-                          <span className="font-extrabold text-slate-900">${p.amount}</span>
+                          <span className="font-extrabold text-slate-900">{formatMoney(p.amount)}</span>
                           <span className="text-[10px] text-slate-400 font-bold">المرحلة التالية ➔</span>
                         </div>
                       </div>
@@ -2739,7 +3156,7 @@ export default function Home() {
                         <p className="font-extrabold text-sm text-slate-800">{p.name}</p>
                         <p className="text-slate-500">العميل: {p.client}</p>
                         <div className="flex justify-between items-center pt-2">
-                          <span className="font-extrabold text-slate-900">${p.amount}</span>
+                          <span className="font-extrabold text-slate-900">{formatMoney(p.amount)}</span>
                           <span className="text-[10px] text-slate-400 font-bold">المرحلة التالية ➔</span>
                         </div>
                       </div>
@@ -2761,7 +3178,7 @@ export default function Home() {
                         <p className="font-extrabold text-sm text-slate-800">{p.name}</p>
                         <p className="text-slate-500">العميل: {p.client}</p>
                         <div className="flex justify-between items-center pt-2">
-                          <span className="font-extrabold text-slate-900">${p.amount}</span>
+                          <span className="font-extrabold text-slate-900">{formatMoney(p.amount)}</span>
                           <span className="text-[10px] text-slate-400 font-bold">المرحلة التالية ➔</span>
                         </div>
                       </div>
@@ -2783,7 +3200,7 @@ export default function Home() {
                         <p className="font-extrabold text-sm text-slate-800">{p.name}</p>
                         <p className="text-slate-500">العميل: {p.client}</p>
                         <div className="flex justify-between items-center pt-2">
-                          <span className="font-extrabold text-slate-900">${p.amount}</span>
+                          <span className="font-extrabold text-slate-900">{formatMoney(p.amount)}</span>
                           <span className="text-xs text-emerald-600 font-bold">{p.status === "COMPLETED" ? "مكتمل ✓" : "متابعة التسليم ➔"}</span>
                         </div>
                       </div>
@@ -2828,7 +3245,7 @@ export default function Home() {
                         <p className="text-slate-500">الخدمة: {a.service}</p>
                         <p className="text-slate-400">الفني: {a.mechanic}</p>
                         <div className="flex justify-between items-center pt-2">
-                          <span className="font-extrabold text-slate-900">${a.cost}</span>
+                          <span className="font-extrabold text-slate-900">{formatMoney(a.cost)}</span>
                           <span className="text-[10px] text-slate-400 font-bold">المرحلة التالية ➔</span>
                         </div>
                       </div>
@@ -2850,7 +3267,7 @@ export default function Home() {
                         <p className="font-extrabold text-sm text-slate-800">{a.vehicle}</p>
                         <p className="text-slate-500">الخدمة: {a.service}</p>
                         <div className="flex justify-between items-center pt-2">
-                          <span className="font-extrabold text-slate-900">${a.cost}</span>
+                          <span className="font-extrabold text-slate-900">{formatMoney(a.cost)}</span>
                           <span className="text-[10px] text-slate-400 font-bold">المرحلة التالية ➔</span>
                         </div>
                       </div>
@@ -2873,7 +3290,7 @@ export default function Home() {
                         <p className="text-slate-500">الخدمة: {a.service}</p>
                         <p className="text-slate-400">الفني: {a.mechanic}</p>
                         <div className="flex justify-between items-center pt-2">
-                          <span className="font-extrabold text-slate-900">${a.cost}</span>
+                          <span className="font-extrabold text-slate-900">{formatMoney(a.cost)}</span>
                           <span className="text-[10px] text-slate-400 font-bold">المرحلة التالية ➔</span>
                         </div>
                       </div>
@@ -2895,7 +3312,7 @@ export default function Home() {
                         <p className="font-extrabold text-sm text-slate-800">{a.vehicle}</p>
                         <p className="text-slate-500 font-bold text-emerald-600">تسليم وفاتورة</p>
                         <div className="flex justify-between items-center pt-2">
-                          <span className="font-extrabold text-slate-900">${a.cost}</span>
+                          <span className="font-extrabold text-slate-900">{formatMoney(a.cost)}</span>
                           <span className="text-xs text-emerald-600 font-bold">جاهز ✓</span>
                         </div>
                       </div>
@@ -3065,7 +3482,7 @@ export default function Home() {
                               </span>
                             </td>
                             <td className="px-5 py-4 text-slate-700 font-semibold leading-relaxed">{exp.description || "بدون بيان إضافي"}</td>
-                            <td className="px-5 py-4 text-left font-black text-rose-600 text-base font-mono">${Number(exp.amount).toFixed(2)}</td>
+                            <td className="px-5 py-4 text-left font-black text-rose-600 text-base font-mono">{formatMoney(exp.amount)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -3445,6 +3862,267 @@ export default function Home() {
             </div>
           )}
 
+          {/* --- SETTINGS MODAL --- */}
+          {showSettingsModal && (
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg p-6 md:p-8 relative animate-in fade-in zoom-in-95 duration-200 text-right shadow-2xl">
+                <button onClick={() => setShowSettingsModal(false)} className="absolute top-4 left-4 text-slate-400 hover:text-slate-700 cursor-pointer text-base font-bold">✕</button>
+                <h3 className="text-xl font-black text-slate-900 mb-6 border-b border-slate-100 pb-4">إعدادات المنشأة والعملة</h3>
+                <form onSubmit={saveSettings} className="space-y-5">
+                  <div className="text-right">
+                    <label className="block text-sm font-bold text-slate-700 mb-2">اسم المنشأة / العلامة التجارية</label>
+                    <input
+                      type="text"
+                      required
+                      value={settingsName}
+                      onChange={(e) => setSettingsName(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-right font-medium"
+                      placeholder="أدخل اسم المنشأة..."
+                    />
+                  </div>
+
+                  <div className="text-right">
+                    <label className="block text-sm font-bold text-slate-700 mb-2">عملة التداول الافتراضية</label>
+                    <select
+                      value={settingsCurrency}
+                      onChange={(e) => setSettingsCurrency(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-3 py-3 text-sm text-slate-800 outline-none text-right font-bold cursor-pointer"
+                    >
+                      <option value="SAR">ريال سعودي (SAR)</option>
+                      <option value="EGP">جنيه مصري (EGP)</option>
+                      <option value="AED">درهم إماراتي (AED)</option>
+                      <option value="USD">دولار أمريكي (USD)</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={settingsLoading}
+                    className="w-full mt-3 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-2xl text-sm transition-all cursor-pointer shadow-lg active:scale-[0.98] disabled:opacity-50"
+                  >
+                    {settingsLoading ? "جاري الحفظ..." : "حفظ التعديلات"}
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* --- SUPPLIERS MODAL --- */}
+          {showSuppliersModal && (
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg p-6 md:p-8 relative animate-in fade-in zoom-in-95 duration-200 text-right shadow-2xl">
+                <button onClick={() => setShowSuppliersModal(false)} className="absolute top-4 left-4 text-slate-400 hover:text-slate-700 cursor-pointer text-base font-bold">✕</button>
+                <h3 className="text-xl font-black text-slate-900 mb-6 border-b border-slate-100 pb-4">إدارة الموردين - إضافة مورد جديد</h3>
+                <form onSubmit={createSupplier} className="space-y-5">
+                  <div className="text-right">
+                    <label className="block text-sm font-bold text-slate-700 mb-2">اسم المورد / الشركة</label>
+                    <input
+                      type="text"
+                      required
+                      value={newSupplierName}
+                      onChange={(e) => setNewSupplierName(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-right font-medium"
+                      placeholder="شركة التوريدات الوطنية"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-right">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">البريد الإلكتروني</label>
+                      <input
+                        type="email"
+                        value={newSupplierEmail}
+                        onChange={(e) => setNewSupplierEmail(e.target.value)}
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-left font-mono"
+                        placeholder="supplier@example.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">رقم الهاتف</label>
+                      <input
+                        type="text"
+                        value={newSupplierPhone}
+                        onChange={(e) => setNewSupplierPhone(e.target.value)}
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-left font-mono"
+                        placeholder="+966500000000"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <label className="block text-sm font-bold text-slate-700 mb-2">الرقم الضريبي (إن وجد)</label>
+                    <input
+                      type="text"
+                      value={newSupplierTax}
+                      onChange={(e) => setNewSupplierTax(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-right font-mono"
+                      placeholder="15-digit Tax ID"
+                    />
+                  </div>
+
+                  <div className="text-right">
+                    <label className="block text-sm font-bold text-slate-700 mb-2">العنوان الوطني / التفصيلي</label>
+                    <textarea
+                      value={newSupplierAddress}
+                      onChange={(e) => setNewSupplierAddress(e.target.value)}
+                      rows={2}
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-right font-medium resize-none"
+                      placeholder="شارع الملك فهد، الرياض، المملكة العربية السعودية"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full mt-3 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-2xl text-sm transition-all cursor-pointer shadow-lg active:scale-[0.98]"
+                  >
+                    تأكيد تسجيل المورد
+                  </button>
+                </form>
+
+                {/* Suppliers list inside the modal for reference */}
+                <div className="mt-8 border-t border-slate-100 pt-6">
+                  <h4 className="text-sm font-black text-slate-850 mb-3 flex items-center justify-between">
+                    <span>الموردين المسجلين حالياً</span>
+                    <span className="text-xs text-slate-400 font-bold">({suppliers.length}) موردين</span>
+                  </h4>
+                  <div className="max-h-40 overflow-y-auto space-y-2.5 pr-1 text-right">
+                    {suppliers.length === 0 ? (
+                      <p className="text-xs text-slate-400 text-center py-4 font-bold">لا يوجد موردين مسجلين بعد.</p>
+                    ) : (
+                      suppliers.map((s) => (
+                        <div key={s.id} className="bg-slate-50 p-3 rounded-xl flex items-center justify-between text-xs border border-slate-200/50">
+                          <div className="text-right">
+                            <p className="font-extrabold text-slate-800">{s.name}</p>
+                            <p className="text-[10px] text-slate-450 mt-0.5">{s.phone || "بدون هاتف"} | {s.email || "بدون بريد"}</p>
+                          </div>
+                          {s.taxNumber && (
+                            <span className="bg-indigo-50 text-indigo-650 px-2 py-0.5 rounded-md font-mono font-bold text-[10px]">
+                              الرقم الضريبي: {s.taxNumber}
+                            </span>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* --- RECORD PURCHASE MODAL --- */}
+          {showPurchaseModal && (
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg p-6 md:p-8 relative animate-in fade-in zoom-in-95 duration-200 text-right shadow-2xl">
+                <button onClick={() => setShowPurchaseModal(false)} className="absolute top-4 left-4 text-slate-400 hover:text-slate-700 cursor-pointer text-base font-bold">✕</button>
+                <h3 className="text-xl font-black text-slate-900 mb-6 border-b border-slate-100 pb-4">توريد بضاعة للمستودع (شراء)</h3>
+                <form onSubmit={createPurchase} className="space-y-5">
+                  <div className="text-right">
+                    <label className="block text-sm font-bold text-slate-700 mb-2">المورد المسجل</label>
+                    <select
+                      required
+                      value={purchaseSupplierId}
+                      onChange={(e) => setPurchaseSupplierId(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-3 py-3 text-sm text-slate-800 outline-none text-right font-bold cursor-pointer"
+                    >
+                      <option value="">اختر المورد الشاحن...</option>
+                      {suppliers.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-right">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">المستودع المستلم</label>
+                      <select
+                        required
+                        value={purchaseWarehouseId}
+                        onChange={(e) => setPurchaseWarehouseId(e.target.value)}
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-3 py-3 text-sm text-slate-800 outline-none text-right font-bold cursor-pointer"
+                      >
+                        <option value="">اختر المستودع...</option>
+                        {warehouses.map((w) => (
+                          <option key={w.id} value={w.id}>{w.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">رقم فاتورة الشراء (PO)</label>
+                      <input
+                        type="text"
+                        value={purchaseOrderNum}
+                        onChange={(e) => setPurchaseOrderNum(e.target.value)}
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-right font-mono"
+                        placeholder="PO-XXXXXX"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <label className="block text-sm font-bold text-slate-700 mb-2">المنتج والصنف المراد توريده (SKU)</label>
+                    <select
+                      required
+                      value={purchaseVariantId}
+                      onChange={(e) => setPurchaseVariantId(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-3 py-3 text-sm text-slate-800 outline-none text-right font-bold cursor-pointer"
+                    >
+                      <option value="">اختر الصنف وتكلفة المنتج...</option>
+                      {products.map((p) =>
+                        p.variants?.map((v: any) => (
+                          <option key={v.id} value={v.id}>
+                            {p.name} - SKU: {v.sku} (البيع: {formatMoney(v.price)})
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-right">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">تكلفة شراء الوحدة</label>
+                      <input
+                        type="number"
+                        required
+                        step="0.01"
+                        value={purchaseCost}
+                        onChange={(e) => setPurchaseCost(Number(e.target.value))}
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-left font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">الكمية المشتراة</label>
+                      <input
+                        type="number"
+                        required
+                        value={purchaseQty}
+                        onChange={(e) => setPurchaseQty(Number(e.target.value))}
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-left font-mono font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <label className="block text-sm font-bold text-slate-700 mb-2">ملاحظات التوريد والشحنة</label>
+                    <input
+                      type="text"
+                      value={purchaseNotes}
+                      onChange={(e) => setPurchaseNotes(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-right font-medium"
+                      placeholder="شحنة بضائع وتغذية الربع الثالث للمخازن..."
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full mt-3 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-2xl text-sm transition-all cursor-pointer shadow-lg active:scale-[0.98]"
+                  >
+                    تأكيد استلام وتغذية المستودع بـ {purchaseQty} وحدة
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
           {/* --- FIRST TIME WELCOME MODAL --- */}
           {showWelcomeModal && (
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -3508,14 +4186,17 @@ export default function Home() {
                   <div className="grid grid-cols-2 gap-4 text-right">
                     <div>
                       <label className="block text-sm font-bold text-slate-700 mb-2">اسم العميل</label>
-                      <input
-                        type="text"
+                      <select
                         required
                         value={projClient}
                         onChange={(e) => setProjClient(e.target.value)}
-                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-right font-medium"
-                        placeholder="أحمد الشهراني"
-                      />
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-3 py-3 text-sm text-slate-800 outline-none text-right font-bold cursor-pointer"
+                      >
+                        <option value="">اختر العميل للمشروع...</option>
+                        {customers.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="block text-sm font-bold text-slate-700 mb-2">الميزانية التقديرية ($)</label>
@@ -3572,6 +4253,20 @@ export default function Home() {
                 <h3 className="text-xl font-black text-slate-900 mb-6 border-b border-slate-100 pb-4">استقبال مركبة جديدة وإصدار كارت صيانة</h3>
                 <form onSubmit={createAppointment} className="space-y-5">
                   <div className="grid grid-cols-2 gap-4 text-right">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">العميل مالك السيارة</label>
+                      <select
+                        required
+                        value={appCustomer}
+                        onChange={(e) => setAppCustomer(e.target.value)}
+                        className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-3 py-3 text-sm text-slate-800 outline-none text-right font-bold cursor-pointer"
+                      >
+                        <option value="">اختر العميل مالك السيارة...</option>
+                        {customers.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
                     <div>
                       <label className="block text-sm font-bold text-slate-700 mb-2">بيانات السيارة ورقم اللوحة</label>
                       <input
