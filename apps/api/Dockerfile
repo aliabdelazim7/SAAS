@@ -3,7 +3,7 @@ FROM node:22-alpine AS builder
 
 
 # Install build dependencies for native modules (like argon2)
-RUN apk add --no-cache libc6-compat python3 make g++
+RUN apk add --no-cache libc6-compat python3 make g++ openssl
 
 WORKDIR /app
 RUN npm install -g pnpm
@@ -41,7 +41,7 @@ RUN cd /app/deploy && PRISMA_GENERATE_SKIP_AUTOINSTALL=1 npx prisma generate --s
 FROM node:22-alpine AS runner
 
 # Install libc6-compat for native modules like argon2 at runtime
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat openssl
 
 WORKDIR /app
 ENV NODE_ENV=production
