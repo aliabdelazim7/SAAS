@@ -13,6 +13,8 @@ import { BOMService } from './bom.service';
 import { BOMController } from './bom.controller';
 import { TaxRateService } from './tax-rate.service';
 import { TaxRateController } from './tax-rate.controller';
+import { InventoryMovementService } from './inventory-movement.service';
+import { DocumentEngineService } from './document-engine.service';
 
 @Module({
   controllers: [
@@ -32,6 +34,8 @@ import { TaxRateController } from './tax-rate.controller';
     ShiftService,
     BOMService,
     TaxRateService,
+    InventoryMovementService,
+    DocumentEngineService,
   ],
   exports: [
     TenantService,
@@ -41,6 +45,8 @@ import { TaxRateController } from './tax-rate.controller';
     ShiftService,
     BOMService,
     TaxRateService,
+    InventoryMovementService,
+    DocumentEngineService,
   ],
 })
 export class TenantModule {}

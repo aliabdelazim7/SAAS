@@ -2,10 +2,16 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateInvoiceDto, POSCheckoutDto } from '@crm/dto';
 import { Prisma, TenantContext } from '@crm/database';
+import { DocumentEngineService } from '../tenant/document-engine.service';
+import { InventoryMovementService } from '../tenant/inventory-movement.service';
 
 @Injectable()
 export class InvoiceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly docEngine: DocumentEngineService,
+    private readonly inventoryMovement: InventoryMovementService
+  ) {}
 
   async create(createDto: CreateInvoiceDto, userId?: string) {
     const tenantId = TenantContext.getTenantId();
@@ -140,6 +146,22 @@ export class InvoiceService {
         },
       });
 
+      // Register the invoice inside the unified Document Engine
+      await this.docEngine.createDocument({
+        docType: 'INVOICE',
+        docNumber: invoiceNumber,
+        partyType: 'CUSTOMER',
+        partyId: createDto.customerId || '',
+        status: createDto.status,
+        lines: resolvedItems.map(item => ({
+          variantId: item.variantId,
+          quantity: Number(item.quantity),
+          unitPrice: Number(item.unitPrice),
+          taxRate: Number(item.taxRate),
+          discountAmount: Number(item.discountAmount)
+        }))
+      }, tx);
+
       // F. Create the Invoice Items & Deduct Inventory Balances
       for (const resolvedItem of resolvedItems) {
         // Create line item
@@ -157,20 +179,15 @@ export class InvoiceService {
           },
         });
 
-        // Deduct inventory balance
-        await tx.inventoryBalance.update({
-          where: {
-            warehouseId_variantId: {
-              warehouseId: createDto.warehouseId,
-              variantId: resolvedItem.variantId,
-            },
-          },
-          data: {
-            quantity: {
-              decrement: resolvedItem.quantity,
-            },
-          },
-        });
+        // Deduct inventory balance via unified InventoryMovementService
+        await this.inventoryMovement.executeMovement({
+          variantId: resolvedItem.variantId,
+          quantity: Number(resolvedItem.quantity),
+          movementType: 'SALE',
+          referenceType: 'INVOICE',
+          referenceId: invoice.id,
+          sourceWarehouseId: createDto.warehouseId
+        }, tx);
       }
 
       // G. If UNPAID, update Customer Outstanding Balance

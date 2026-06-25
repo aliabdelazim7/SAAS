@@ -2,10 +2,14 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateProjectDto, UpdateProjectDto, CreateTaskDto, UpdateTaskDto } from '@crm/dto';
 import { Prisma, TenantContext } from '@crm/database';
+import { InventoryMovementService } from './inventory-movement.service';
 
 @Injectable()
 export class ProjectService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly inventoryMovement: InventoryMovementService
+  ) {}
 
   async create(createDto: CreateProjectDto) {
     const tenantId = TenantContext.getTenantId();
@@ -267,31 +271,11 @@ export class ProjectService {
     if (!warehouse) throw new NotFoundException('No warehouse registered. Cannot deduct parts.');
 
     return this.prisma.$transaction(async (tx) => {
-      const balance = await tx.inventoryBalance.findFirst({
-        where: { warehouseId: warehouse.id, variantId: dto.variantId, tenantId },
-      });
-      const stock = balance ? Number(balance.quantity) : 0;
-      if (stock < dto.quantity) {
-        throw new BadRequestException(`Insufficient stock. Available: ${stock}, Requested: ${dto.quantity}`);
-      }
-
-      await tx.inventoryBalance.update({
-        where: {
-          warehouseId_variantId: {
-            warehouseId: warehouse.id,
-            variantId: dto.variantId,
-          },
-        },
-        data: {
-          quantity: { decrement: dto.quantity },
-        },
-      });
-
       const qty = Number(dto.quantity);
       const price = new Prisma.Decimal(dto.unitPrice);
       const total = price.mul(qty);
 
-      return tx.projectMaterial.create({
+      const projectMaterial = await tx.projectMaterial.create({
         data: {
           tenantId,
           projectId,
@@ -304,6 +288,18 @@ export class ProjectService {
           variant: { include: { product: true } },
         },
       });
+
+      // Deduct stock via unified InventoryMovementService
+      await this.inventoryMovement.executeMovement({
+        variantId: dto.variantId,
+        quantity: qty,
+        movementType: 'CONSUMPTION',
+        referenceType: 'PROJECT_MATERIAL',
+        referenceId: projectMaterial.id,
+        sourceWarehouseId: warehouse.id
+      }, tx);
+
+      return projectMaterial;
     });
   }
 
@@ -320,17 +316,14 @@ export class ProjectService {
 
     await this.prisma.$transaction(async (tx) => {
       if (warehouse) {
-        await tx.inventoryBalance.update({
-          where: {
-            warehouseId_variantId: {
-              warehouseId: warehouse.id,
-              variantId: material.variantId,
-            },
-          },
-          data: {
-            quantity: { increment: material.quantity },
-          },
-        });
+        await this.inventoryMovement.executeMovement({
+          variantId: material.variantId,
+          quantity: material.quantity,
+          movementType: 'ADJUSTMENT',
+          referenceType: 'PROJECT_MATERIAL',
+          referenceId: material.id,
+          destWarehouseId: warehouse.id
+        }, tx);
       }
 
       await tx.projectMaterial.delete({

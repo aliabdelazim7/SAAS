@@ -2,10 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePurchaseOrderDto } from '@crm/dto';
 import { Prisma, TenantContext } from '@crm/database';
+import { InventoryMovementService } from '../tenant/inventory-movement.service';
 
 @Injectable()
 export class PurchaseService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly inventoryMovement: InventoryMovementService,
+  ) {}
 
   async create(createDto: CreatePurchaseOrderDto) {
     const tenantId = TenantContext.getTenantId();
@@ -68,36 +72,16 @@ export class PurchaseService {
         },
       });
 
-      // Update Inventory Balance for each item
+      // Update Inventory Balance for each item via InventoryMovementService
       for (const item of createDto.items) {
-        const existingBalance = await tx.inventoryBalance.findFirst({
-          where: {
-            warehouseId: createDto.warehouseId,
-            variantId: item.variantId,
-          },
-        });
-
-        if (existingBalance) {
-          await tx.inventoryBalance.update({
-            where: { id: existingBalance.id },
-            data: {
-              quantity: {
-                increment: new Prisma.Decimal(item.quantity),
-              },
-            },
-          });
-        } else {
-          await tx.inventoryBalance.create({
-            data: {
-              tenantId,
-              warehouseId: createDto.warehouseId,
-              variantId: item.variantId,
-              quantity: new Prisma.Decimal(item.quantity),
-              reservedQuantity: new Prisma.Decimal(0),
-              reorderLevel: new Prisma.Decimal(10),
-            },
-          });
-        }
+        await this.inventoryMovement.executeMovement({
+          variantId: item.variantId,
+          quantity: item.quantity,
+          movementType: 'PURCHASE',
+          referenceType: 'PURCHASE_ORDER',
+          referenceId: po.id,
+          destWarehouseId: createDto.warehouseId,
+        }, tx);
       }
 
       return po;
