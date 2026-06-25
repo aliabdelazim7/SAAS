@@ -33,6 +33,12 @@ export class TenantController {
     return this.tenantService.inviteMember(tenantId, inviteDto);
   }
 
+  @Post('bootstrap-template')
+  async bootstrapTemplate(@Req() req: any, @Body('templateCode') templateCode: string) {
+    const tenantId = req.user.tenantId;
+    return this.tenantService.bootstrapTemplateForTenant(tenantId, templateCode);
+  }
+
   @Get('templates')
   async getTemplates() {
     return this.tenantService.getTemplates();

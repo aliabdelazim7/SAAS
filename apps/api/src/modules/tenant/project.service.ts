@@ -3,12 +3,14 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateProjectDto, UpdateProjectDto, CreateTaskDto, UpdateTaskDto } from '@crm/dto';
 import { Prisma, TenantContext } from '@crm/database';
 import { InventoryMovementService } from './inventory-movement.service';
+import { DocumentEngineService } from './document-engine.service';
 
 @Injectable()
 export class ProjectService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly inventoryMovement: InventoryMovementService
+    private readonly inventoryMovement: InventoryMovementService,
+    private readonly docEngine: DocumentEngineService,
   ) {}
 
   async create(createDto: CreateProjectDto) {
@@ -77,11 +79,33 @@ export class ProjectService {
   }
 
   async update(id: string, updateDto: UpdateProjectDto) {
-    const project = await this.findOne(id);
     const tenantId = TenantContext.getTenantId();
-    if (!tenantId) throw new Error('Tenant context missing.');
+    if (!tenantId) {
+      throw new Error('Tenant context missing.');
+    }
 
-    // 1. If measurements are being updated, record revision history
+    const project = await this.findOne(id);
+
+    // 1. Validate workflow transition if status is changing
+    if (updateDto.status && updateDto.status !== project.status) {
+      const fromState = await this.prisma.tenantWorkflowState.findFirst({
+        where: { tenantId, entityType: 'PROJECT', stateCode: project.status }
+      });
+      const toState = await this.prisma.tenantWorkflowState.findFirst({
+        where: { tenantId, entityType: 'PROJECT', stateCode: updateDto.status }
+      });
+
+      if (fromState && toState) {
+        const transition = await this.prisma.tenantWorkflowTransition.findFirst({
+          where: { tenantId, entityType: 'PROJECT', fromStateId: fromState.id, toStateId: toState.id }
+        });
+        if (!transition) {
+          throw new BadRequestException(`Invalid workflow transition from ${project.status} to ${updateDto.status}`);
+        }
+      }
+    }
+
+    // 2. Revision History check for measurements
     if (updateDto.measurements && JSON.stringify(updateDto.measurements) !== JSON.stringify(project.measurements)) {
       await this.prisma.projectMeasurementHistory.create({
         data: {
@@ -93,7 +117,7 @@ export class ProjectService {
       });
     }
 
-    // 2. Perform the update
+    // 3. Perform the update
     const updatedProject = await this.prisma.project.update({
       where: { id },
       data: {
@@ -113,7 +137,7 @@ export class ProjectService {
       },
     });
 
-    // 3. Auto-billing: If status is advanced to DELIVERY or COMPLETED, auto-generate invoice for parts
+    // 4. Auto-billing: If status is advanced to DELIVERY or COMPLETED, auto-generate invoice for parts
     if (updateDto.status === 'DELIVERY' || updateDto.status === 'COMPLETED') {
       const existingInv = await this.prisma.invoice.findFirst({
         where: { customerId: project.customerId, tenantId, notes: `Project Auto-Bill: ${project.name}` }
@@ -133,32 +157,51 @@ export class ProjectService {
           const grandTotal = subTotal.add(taxTotal);
           const invoiceNumber = `PRJ-${id.slice(-6)}-${Date.now().toString().slice(-4)}`;
 
-          await this.prisma.invoice.create({
-            data: {
-              tenantId,
-              customerId: project.customerId,
-              invoiceNumber,
-              status: 'UNPAID',
-              subTotal,
-              taxTotal,
-              discountTotal: 0,
-              grandTotal,
-               notes: `Project Auto-Bill: ${project.name}`,
-              issueDate: new Date(),
-              dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days payment terms
-              items: {
-                create: mats.map(m => ({
-                  tenantId,
-                  variantId: m.variantId,
-                  quantity: m.quantity,
-                  unitPrice: m.unitPrice,
-                  taxRate: 15.00,
-                  taxAmount: new Prisma.Decimal(m.totalPrice).mul(0.15),
-                  discountAmount: 0,
-                  totalAmount: new Prisma.Decimal(m.totalPrice).mul(1.15)
-                }))
+          await this.prisma.$transaction(async (tx) => {
+            // A. Create the invoice
+            await tx.invoice.create({
+              data: {
+                tenantId,
+                customerId: project.customerId,
+                invoiceNumber,
+                status: 'UNPAID',
+                subTotal,
+                taxTotal,
+                discountTotal: 0,
+                grandTotal,
+                notes: `Project Auto-Bill: ${project.name}`,
+                issueDate: new Date(),
+                dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+                items: {
+                  create: mats.map(m => ({
+                    tenantId,
+                    variantId: m.variantId,
+                    quantity: m.quantity,
+                    unitPrice: m.unitPrice,
+                    taxRate: 15.00,
+                    taxAmount: new Prisma.Decimal(m.totalPrice).mul(0.15),
+                    discountAmount: 0,
+                    totalAmount: new Prisma.Decimal(m.totalPrice).mul(1.15)
+                  }))
+                }
               }
-            }
+            });
+
+            // B. Register the invoice inside the unified Document Engine
+            await this.docEngine.createDocument({
+              docType: 'INVOICE',
+              docNumber: invoiceNumber,
+              partyType: 'CUSTOMER',
+              partyId: project.customerId || '',
+              status: 'UNPAID',
+              lines: mats.map(m => ({
+                variantId: m.variantId,
+                quantity: Number(m.quantity),
+                unitPrice: Number(m.unitPrice),
+                taxRate: 15.00,
+                discountAmount: 0
+              }))
+            }, tx);
           });
         }
       }

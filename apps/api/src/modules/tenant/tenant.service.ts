@@ -371,6 +371,205 @@ export class TenantService {
     });
   }
 
+  async bootstrapTemplateForTenant(tenantId: string, templateCode: string) {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) throw new NotFoundException('Tenant not found.');
+
+    let template = await this.prisma.businessTemplate.findUnique({
+      where: { code: templateCode.toUpperCase() },
+      include: {
+        modules: true,
+        roles: { include: { permissions: true } },
+        dashboards: true,
+        workflows: true,
+      },
+    });
+    if (!template) {
+      throw new NotFoundException(`Business template ${templateCode} not found.`);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Clear existing template relations, workflow states, transitions, dashboards, custom roles, tenant modules
+      await tx.tenantWorkflowTransition.deleteMany({ where: { tenantId } });
+      await tx.tenantWorkflowState.deleteMany({ where: { tenantId } });
+      await tx.tenantDashboardWidget.deleteMany({ where: { tenantId } });
+      await tx.tenantModule.deleteMany({ where: { tenantId } });
+      await tx.tenantTemplate.deleteMany({ where: { tenantId } });
+
+      const roles = await tx.role.findMany({ where: { tenantId } });
+      for (const r of roles) {
+        await tx.rolePermission.deleteMany({ where: { roleId: r.id } });
+        await tx.userRole.deleteMany({ where: { roleId: r.id } });
+      }
+      await tx.role.deleteMany({ where: { tenantId } });
+
+      // 2. Link Tenant to Template
+      await tx.tenantTemplate.create({
+        data: {
+          tenantId,
+          templateId: template.id,
+        },
+      });
+
+      // 3. Seed Master Permissions if not present
+      const defaultModules = [
+        'crm', 'inventory', 'sales', 'pos', 'purchases', 'finance', 'projects', 'hr',
+        'vehicles', 'measurements', 'production', 'installations', 'machines', 'maintenance',
+        'teams', 'contracts', 'tasks'
+      ];
+      const actions = ['view', 'create', 'edit', 'delete', 'approve', 'export', '*'];
+      const expectedPermissions: { module: string; action: string; description: string }[] = [];
+      for (const mod of defaultModules) {
+        for (const act of actions) {
+          expectedPermissions.push({
+            module: mod,
+            action: act,
+            description: `Enables ${act} on ${mod} module.`,
+          });
+        }
+      }
+      await tx.permission.createMany({
+        data: expectedPermissions,
+        skipDuplicates: true,
+      });
+
+      const allPermissions = await tx.permission.findMany();
+      const permissionsMap: { [key: string]: string } = {};
+      for (const perm of allPermissions) {
+        permissionsMap[`${perm.module}:${perm.action}`] = perm.id;
+      }
+
+      // 4. Provision Roles & Permissions
+      let ownerRoleId: string | null = null;
+      for (const tRole of template.roles) {
+        const role = await tx.role.create({
+          data: {
+            tenantId,
+            name: tRole.code,
+            description: tRole.description,
+            isCustom: false,
+          },
+        });
+
+        if (tRole.code === 'OWNER') {
+          ownerRoleId = role.id;
+        }
+
+        const rolePermissionsToCreate: { roleId: string; permissionId: string }[] = [];
+        for (const tPerm of tRole.permissions) {
+          if (tPerm.action === '*') {
+            const matchedPerms = allPermissions.filter((p) => p.module === tPerm.module);
+            for (const mp of matchedPerms) {
+              rolePermissionsToCreate.push({
+                roleId: role.id,
+                permissionId: mp.id,
+              });
+            }
+          } else {
+            const permKey = `${tPerm.module}:${tPerm.action}`;
+            const permId = permissionsMap[permKey];
+            if (permId) {
+              rolePermissionsToCreate.push({
+                roleId: role.id,
+                permissionId: permId,
+              });
+            }
+          }
+        }
+
+        if (rolePermissionsToCreate.length > 0) {
+          await tx.rolePermission.createMany({
+            data: rolePermissionsToCreate,
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      // 5. Associate Owner User to Owner Role if owner role exists and user exists
+      const ownerUser = await tx.user.findFirst({ where: { tenantId } });
+      if (ownerUser && ownerRoleId) {
+        await tx.userRole.deleteMany({ where: { userId: ownerUser.id } });
+        await tx.userRole.create({
+          data: {
+            userId: ownerUser.id,
+            roleId: ownerRoleId,
+          },
+        });
+      }
+
+      // 6. Enable Modules
+      const tenantModulesToEnable = template.modules.map((m) => ({
+        tenantId,
+        moduleId: m.moduleId,
+        isEnabled: true,
+      }));
+      await tx.tenantModule.createMany({ data: tenantModulesToEnable });
+
+      // 7. Provision Dashboards
+      if (ownerUser) {
+        const dashboardWidgetsToCreate = template.dashboards.map((dash) => ({
+          tenantId,
+          userId: ownerUser.id,
+          widgetCode: dash.widgetCode,
+          widgetName: dash.widgetName,
+          gridPos: dash.gridPos || {},
+          isVisible: true,
+        }));
+        if (dashboardWidgetsToCreate.length > 0) {
+          await tx.tenantDashboardWidget.createMany({ data: dashboardWidgetsToCreate });
+        }
+      }
+
+      // 8. Provision Workflows
+      if (template.workflows.length > 0) {
+        const workflowStatesToCreate = template.workflows.map((wf) => ({
+          tenantId,
+          entityType: wf.entityType,
+          stateCode: wf.stateCode,
+          stateName: wf.stateName,
+          sortOrder: wf.sortOrder,
+          isInitial: wf.isInitial,
+          isFinal: wf.isFinal,
+        }));
+        await tx.tenantWorkflowState.createMany({ data: workflowStatesToCreate });
+
+        const entityTypes = [...new Set(template.workflows.map((wf) => wf.entityType))];
+        for (const type of entityTypes) {
+          const typeStates = template.workflows
+            .filter((wf) => wf.entityType === type)
+            .sort((a, b) => a.sortOrder - b.sortOrder);
+          
+          const dbStates = await tx.tenantWorkflowState.findMany({
+            where: { tenantId, entityType: type },
+          });
+          const dbStatesMap: { [key: string]: string } = {};
+          for (const s of dbStates) {
+            dbStatesMap[s.stateCode] = s.id;
+          }
+
+          const transitionsToCreate: { tenantId: string; entityType: string; fromStateId: string; toStateId: string }[] = [];
+          for (let i = 0; i < typeStates.length - 1; i++) {
+            const fromStateId = dbStatesMap[typeStates[i].stateCode];
+            const toStateId = dbStatesMap[typeStates[i + 1].stateCode];
+            if (fromStateId && toStateId) {
+              transitionsToCreate.push({
+                tenantId,
+                entityType: type,
+                fromStateId,
+                toStateId,
+              });
+            }
+          }
+          if (transitionsToCreate.length > 0) {
+            await tx.tenantWorkflowTransition.createMany({ data: transitionsToCreate });
+          }
+        }
+      }
+
+      return { success: true };
+    });
+  }
+
   async getTemplates() {
     return this.prisma.businessTemplate.findMany({
       include: {
