@@ -50,3 +50,5 @@ Desktop.ini
 **/.turbo/
 .expo/
 **/.expo/
+.vercel/
+

@@ -1,0 +1,10 @@
+# Ignore mobile apps and API backend from vercel uploads
+apps/mobile/
+apps/api/
+docs/
+.git/
+.agents/
+.turbo/
+**/node_modules/
+**/dist/
+**/.next/
