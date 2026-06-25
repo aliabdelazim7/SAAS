@@ -32,7 +32,10 @@ import {
   Cpu,
   Layers,
   Calendar,
-  Settings
+  Settings,
+  Lock,
+  History,
+  Scale
 } from "lucide-react";
 
 const getApiUrl = () => {
@@ -203,6 +206,32 @@ export default function Home() {
   const [posSearchQuery, setPosSearchQuery] = useState("");
   const [posAmountPaid, setPosAmountPaid] = useState("");
   const [posCheckoutSuccess, setPosCheckoutSuccess] = useState<any>(null);
+
+  // --- SHIFTS & RECONCILIATION ---
+  const [activeShift, setActiveShift] = useState<any>(null);
+  const [shifts, setShifts] = useState<any[]>([]);
+  const [showOpenShiftModal, setShowOpenShiftModal] = useState(false);
+  const [showCloseShiftModal, setShowCloseShiftModal] = useState(false);
+  const [shiftOpeningBalance, setShiftOpeningBalance] = useState("0");
+  const [shiftActualCash, setShiftActualCash] = useState("0");
+  const [shiftNotes, setShiftNotes] = useState("");
+
+  // --- BOM & TAX RATES ---
+  const [boms, setBoms] = useState<any[]>([]);
+  const [taxRates, setTaxRates] = useState<any[]>([]);
+  const [showTaxModal, setShowTaxModal] = useState(false);
+  const [newTaxName, setNewTaxName] = useState("");
+  const [newTaxRate, setNewTaxRate] = useState("15");
+
+  // --- WORKSHOP / REPAIR MATERIALS ---
+  const [projectMaterials, setProjectMaterials] = useState<any[]>([]);
+  const [showMaterialsModal, setShowMaterialsModal] = useState(false);
+  const [selectedProjectIdForMaterials, setSelectedProjectIdForMaterials] = useState<string | null>(null);
+  const [newMaterialVariantId, setNewMaterialVariantId] = useState("");
+  const [newMaterialQty, setNewMaterialQty] = useState("1");
+
+  // --- MEASUREMENT HISTORY ---
+  const [measurementHistory, setMeasurementHistory] = useState<any[]>([]);
 
   // --- EFFECTS ---
   useEffect(() => {
@@ -494,6 +523,36 @@ export default function Home() {
           budget: Number(p.amount)
         })));
       }
+
+      // 11. Fetch Active Shift
+      const activeShiftRes = await fetch(`${API_BASE_URL}/shifts/active`, { headers });
+      if (activeShiftRes.ok) {
+        const activeShiftData = await activeShiftRes.json();
+        setActiveShift(activeShiftData || null);
+      } else {
+        setActiveShift(null);
+      }
+
+      // 12. Fetch Shifts history
+      const shiftsRes = await fetch(`${API_BASE_URL}/shifts`, { headers });
+      if (shiftsRes.ok) {
+        const shiftsData = await shiftsRes.json();
+        setShifts(shiftsData);
+      }
+
+      // 13. Fetch BOMs
+      const bomsRes = await fetch(`${API_BASE_URL}/boms`, { headers });
+      if (bomsRes.ok) {
+        const bomsData = await bomsRes.json();
+        setBoms(bomsData);
+      }
+
+      // 14. Fetch Tax Rates
+      const taxRatesRes = await fetch(`${API_BASE_URL}/tax-rates`, { headers });
+      if (taxRatesRes.ok) {
+        const taxRatesData = await taxRatesRes.json();
+        setTaxRates(taxRatesData);
+      }
     } catch (err: any) {
       setErrorMsg("فشلت عملية مزامنة البيانات مع الخادم الرئيسي.");
     } finally {
@@ -749,6 +808,202 @@ export default function Home() {
       setErrorMsg(err.message);
     } finally {
       setSettingsLoading(false);
+    }
+  };
+
+  // --- SHIFTS ACTIONS ---
+  const handleOpenShift = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/shifts/open`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          openingBalance: Number(shiftOpeningBalance),
+          notes: shiftNotes,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "فشل فتح الوردية.");
+
+      setActiveShift(data);
+      setShowOpenShiftModal(false);
+      setShiftOpeningBalance("0");
+      setShiftNotes("");
+      fetchAllData();
+      showTemporarySuccess("تم فتح الوردية بنجاح بنشاط الكاشير!");
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    }
+  };
+
+  const handleCloseShift = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/shifts/close`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          actualCash: Number(shiftActualCash),
+          notes: shiftNotes,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "فشل إغلاق الوردية.");
+
+      setActiveShift(null);
+      setShowCloseShiftModal(false);
+      setShiftActualCash("0");
+      setShiftNotes("");
+      fetchAllData();
+      showTemporarySuccess("تم إغلاق الوردية وتسوية الخزنة بنجاح!");
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    }
+  };
+
+  // --- PROJECT MATERIALS ACTIONS ---
+  const handleAddProjectMaterial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !selectedProjectIdForMaterials) return;
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/projects/${selectedProjectIdForMaterials}/materials`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          variantId: newMaterialVariantId,
+          quantity: Number(newMaterialQty),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "فشل إضافة قطعة الغيار.");
+
+      setNewMaterialVariantId("");
+      setNewMaterialQty("1");
+      fetchProjectMaterials(selectedProjectIdForMaterials);
+      fetchAllData();
+      showTemporarySuccess("تم إضافة قطعة الغيار وخصمها من المستودع بنجاح!");
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    }
+  };
+
+  const handleRemoveProjectMaterial = async (projectId: string, materialId: string) => {
+    if (!token) return;
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/projects/${projectId}/materials/${materialId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "فشل إزالة قطعة الغيار.");
+
+      fetchProjectMaterials(projectId);
+      fetchAllData();
+      showTemporarySuccess("تم إزالة قطعة الغيار وإعادتها للمخزن بنجاح!");
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    }
+  };
+
+  const fetchProjectMaterials = async (projectId: string) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/projects/${projectId}/materials`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProjectMaterials(data);
+      }
+    } catch (err) {}
+  };
+
+  const fetchMeasurementHistory = async (projectId: string) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/projects/${projectId}/measurement-history`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMeasurementHistory(data);
+      }
+    } catch (err) {}
+  };
+
+  // --- TAX RATE ACTIONS ---
+  const handleCreateTaxRate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/tax-rates`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: newTaxName,
+          rate: Number(newTaxRate),
+          isDefault: true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "فشل تسجيل نسبة الضريبة.");
+
+      setNewTaxName("");
+      setNewTaxRate("15");
+      setShowTaxModal(false);
+      fetchAllData();
+      showTemporarySuccess("تم حفظ نسبة الضريبة وتفعيلها بنجاح!");
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    }
+  };
+
+  // --- BOM ACTIONS ---
+  const handleCreateBOM = async (variantId: string, name: string, items: any[]) => {
+    if (!token) return;
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/boms`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          variantId,
+          name,
+          items,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "فشل تسجيل شجرة المواد.");
+
+      fetchAllData();
+      showTemporarySuccess("تم تسجيل شجرة المواد بنجاح وحساب تكلفة الإنتاج!");
+    } catch (err: any) {
+      setErrorMsg(err.message);
     }
   };
 
@@ -2727,37 +2982,82 @@ export default function Home() {
                       <div className="border-t border-slate-100 pt-4.5 space-y-3.5 text-right">
                         <h4 className="text-sm font-extrabold text-slate-800">أكواد وأصناف المنتجات المسجلة (SKUs):</h4>
                         {p.variants?.map((v: any) => (
-                          <div key={v.id} className="bg-slate-50 border border-slate-200/60 p-4 rounded-2xl flex items-center justify-between text-sm gap-4">
-                            <div className="space-y-1.5 text-right">
-                              <p className="font-mono font-black text-indigo-600 text-right text-base">{v.sku}</p>
-                              {v.barcode && (
-                                <p className="text-xs text-slate-500 flex items-center gap-1.5 font-mono justify-start font-medium">
-                                  <QrCode className="w-4 h-4 text-slate-400 shrink-0" />
-                                  <span>{v.barcode}</span>
-                                </p>
-                              )}
-                              <p className="text-xs text-slate-500 text-right font-medium">
-                                {Object.keys(v.attributes || {}).map((k) => `${k}: ${v.attributes[k]}`).join(" | ") || "بدون خصائص إضافية"}
-                              </p>
-                            </div>
-
-                            <div className="text-left shrink-0 space-y-1">
-                              <p className="font-black text-slate-900 font-mono text-base">{formatMoney(v.price)}</p>
-                              <p className="text-xs text-slate-500 font-mono font-bold">التكلفة: ${Number(v.costPrice).toFixed(2)}</p>
-                              <div className="mt-2 flex justify-end flex-wrap gap-1">
-                                {v.balances && v.balances.length > 0 ? (
-                                  v.balances.map((bal: any) => (
-                                    <span key={bal.id} className="inline-block text-xs font-bold bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-lg ms-1">
-                                      {bal.warehouse?.name || "المستودع"}: {Number(bal.quantity)} وحدة
-                                    </span>
-                                  ))
-                                ) : (
-                                  <span className="text-xs font-bold bg-rose-50 text-rose-600 px-2.5 py-1 rounded-lg">
-                                    نفذت الكمية
-                                  </span>
+                          <div key={v.id} className="bg-slate-50 border border-slate-200/60 p-4 rounded-2xl flex flex-col text-sm gap-3 text-right">
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="space-y-1.5 text-right">
+                                <p className="font-mono font-black text-indigo-600 text-right text-base">{v.sku}</p>
+                                {v.barcode && (
+                                  <p className="text-xs text-slate-500 flex items-center gap-1.5 font-mono justify-start font-medium">
+                                    <QrCode className="w-4 h-4 text-slate-400 shrink-0" />
+                                    <span>{v.barcode}</span>
+                                  </p>
                                 )}
+                                <p className="text-xs text-slate-500 text-right font-medium">
+                                  {Object.keys(v.attributes || {}).map((k) => `${k}: ${v.attributes[k]}`).join(" | ") || "بدون خصائص إضافية"}
+                                </p>
+                              </div>
+
+                              <div className="text-left shrink-0 space-y-1">
+                                <p className="font-black text-slate-900 font-mono text-base">{formatMoney(v.price)}</p>
+                                <p className="text-xs text-slate-500 font-mono font-bold">التكلفة: ${Number(v.costPrice).toFixed(2)}</p>
+                                <div className="mt-2 flex justify-end flex-wrap gap-1">
+                                  {v.balances && v.balances.length > 0 ? (
+                                    v.balances.map((bal: any) => (
+                                      <span key={bal.id} className="inline-block text-xs font-bold bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-lg ms-1">
+                                        {bal.warehouse?.name || "المستودع"}: {Number(bal.quantity)} وحدة
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="text-xs font-bold bg-rose-50 text-rose-600 px-2.5 py-1 rounded-lg">
+                                      نفذت الكمية
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
+
+                            {/* BOM Section */}
+                            {(() => {
+                              const variantBom = boms.find((b: any) => b.variantId === v.id);
+                              return variantBom ? (
+                                <div className="mt-2 p-3 bg-indigo-50/50 rounded-xl border border-indigo-100/50 text-right text-xs">
+                                  <p className="font-extrabold text-indigo-850 flex items-center gap-1 justify-end">
+                                    <span>مكونات الإنتاج (BOM)</span>
+                                    <Scale className="w-3.5 h-3.5" />
+                                  </p>
+                                  <div className="mt-1.5 space-y-1">
+                                    {variantBom.items?.map((item: any) => (
+                                      <div key={item.id} className="flex justify-between text-slate-600">
+                                        <span className="font-mono text-left">${(Number(item.unitCost) * Number(item.quantity)).toFixed(2)}</span>
+                                        <span>{Number(item.quantity)}x {item.variant?.product?.name || "مادة خام"}</span>
+                                      </div>
+                                    ))}
+                                    <div className="border-t border-indigo-100 pt-1.5 mt-1.5 flex justify-between font-black text-indigo-900">
+                                      <span className="font-mono">${Number(variantBom.unitCostRollup || 0).toFixed(2)}</span>
+                                      <span>تكلفة المواد التراكمية:</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    const rawOptions = products.filter(pr => pr.id !== p.id).map(pr => pr.variants?.[0]).filter(Boolean);
+                                    if (rawOptions.length < 2) {
+                                      alert("يرجى إضافة المزيد من المنتجات الخام أولاً لاستخدامها كمكونات.");
+                                      return;
+                                    }
+                                    const mockItems = [
+                                      { variantId: rawOptions[0].id, quantity: 2, unitCost: Number(rawOptions[0].price) * 0.5 },
+                                      { variantId: rawOptions[1].id, quantity: 1, unitCost: Number(rawOptions[1].price) * 0.4 }
+                                    ];
+                                    handleCreateBOM(v.id, `تركيبة ${p.name}`, mockItems);
+                                  }}
+                                  className="mt-2 text-[10px] bg-slate-100 hover:bg-indigo-50 hover:text-indigo-650 text-slate-605 font-bold px-3 py-1.5 rounded-lg cursor-pointer transition-colors w-full text-center"
+                                >
+                                  + تحديد شجرة مكونات الإنتاج (BOM) وحساب التكلفة
+                                </button>
+                              );
+                            })()}
                           </div>
                         ))}
                       </div>
@@ -2770,31 +3070,69 @@ export default function Home() {
 
           {/* TAB CONTENT: 4. POS CASHIER CHECKOUT */}
           {activeTab === "pos" && (
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 text-right">
-              {/* RIGHT COLUMN: PRODUCTS BROWSER (3/5 width) - Rendered first in Arabic RTL flow */}
-              <div className="lg:col-span-3 space-y-5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2.5">
-                      <ShoppingCart className="w-6 h-6 text-emerald-500" />
-                      <span>شاشة المحاسبة المباشرة (POS)</span>
-                    </h2>
-                    <p className="text-sm text-slate-500 mt-1">اختر أصناف المنتجات المتوفرة لتسجيل عملية بيع فوري وإصدار إيصال</p>
+            <div className="relative min-h-[600px] w-full">
+              {/* SHIFT WARNING OVERLAY */}
+              {!activeShift && (
+                <div className="absolute inset-0 z-50 bg-slate-900/60 backdrop-blur-md rounded-[32px] flex flex-col items-center justify-center text-center p-8 space-y-6">
+                  <div className="w-20 h-20 rounded-full bg-amber-500/10 flex items-center justify-center">
+                    <Lock className="w-10 h-10 text-amber-500 animate-pulse" />
                   </div>
-
-                  <div className="flex gap-2">
-                    <select
-                      value={posWarehouseId}
-                      onChange={(e) => setPosWarehouseId(e.target.value)}
-                      className="bg-white border border-slate-300 text-sm rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:border-indigo-500 font-bold cursor-pointer shadow-sm"
-                    >
-                      <option value="">اختر مستودع السحب...</option>
-                      {warehouses.map((wh) => (
-                        <option key={wh.id} value={wh.id}>{wh.name}</option>
-                      ))}
-                    </select>
+                  <div className="max-w-md space-y-2">
+                    <h3 className="text-2xl font-black text-white">درج الكاشير مغلق!</h3>
+                    <p className="text-slate-350 text-sm font-medium">
+                      للوقاية من العجز والسرقات ومطابقة النقدية، يمنع النظام بدء عمليات البيع والتحصيل قبل فتح وردية محاسبة جديدة وتوثيق عهدة الرصيد الافتتاحي.
+                    </p>
                   </div>
+                  <button
+                    onClick={() => setShowOpenShiftModal(true)}
+                    className="px-8 py-4 bg-amber-500 hover:bg-amber-600 text-slate-955 font-extrabold rounded-2xl shadow-lg shadow-amber-500/20 transition-all hover:scale-[1.02] cursor-pointer"
+                  >
+                    فتح وردية جديدة وتوثيق العهدة
+                  </button>
                 </div>
+              )}
+
+              <div className={`grid grid-cols-1 lg:grid-cols-5 gap-8 text-right ${!activeShift ? "pointer-events-none filter blur-[2px]" : ""}`}>
+                {/* RIGHT COLUMN: PRODUCTS BROWSER (3/5 width) - Rendered first in Arabic RTL flow */}
+                <div className="lg:col-span-3 space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2.5">
+                        <ShoppingCart className="w-6 h-6 text-emerald-500" />
+                        <span>شاشة المحاسبة المباشرة (POS)</span>
+                      </h2>
+                      <p className="text-sm text-slate-500 mt-1">اختر أصناف المنتجات المتوفرة لتسجيل عملية بيع فوري وإصدار إيصال</p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 items-center">
+                      {activeShift && (
+                        <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-250 px-4 py-2 rounded-xl text-emerald-800 text-xs font-black">
+                          <span className="w-2 h-2 rounded-full bg-emerald-600 animate-ping"></span>
+                          <span>الوردية مفتوحة بواسطة {activeShift.user?.firstName || "المحاسب"} | عهدة: {formatMoney(activeShift.openingBalance)}</span>
+                          <button
+                            onClick={() => {
+                              setShiftActualCash("0");
+                              setShiftNotes("");
+                              setShowCloseShiftModal(true);
+                            }}
+                            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
+                          >
+                            إغلاق الوردية وتسوية الدرج
+                          </button>
+                        </div>
+                      )}
+                      <select
+                        value={posWarehouseId}
+                        onChange={(e) => setPosWarehouseId(e.target.value)}
+                        className="bg-white border border-slate-300 text-sm rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:border-indigo-500 font-bold cursor-pointer shadow-sm text-right"
+                      >
+                        <option value="">اختر مستودع السحب...</option>
+                        {warehouses.map((wh) => (
+                          <option key={wh.id} value={wh.id}>{wh.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
 
                 {/* SEARCH PRODUCTS */}
                 <div className="relative">
@@ -3031,6 +3369,7 @@ export default function Home() {
                 )}
               </div>
             </div>
+            </div>
           )}
 
           {/* TAB CONTENT: 5. SALES INVOICES */}
@@ -3129,7 +3468,7 @@ export default function Home() {
                   </div>
                   <div className="space-y-3">
                     {projects.filter(p => p.status === "LEAD" || p.status === "MEASUREMENT_VISIT").map(p => (
-                      <div key={p.id} onClick={() => advanceProjectStatus(p.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                      <div key={p.id} onClick={() => { setSelectedProjectIdForMaterials(p.id); fetchProjectMaterials(p.id); fetchMeasurementHistory(p.id); setShowMaterialsModal(true); }} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
                         <p className="font-extrabold text-sm text-slate-800">{p.name}</p>
                         <p className="text-slate-500">العميل: {p.client}</p>
                         {p.measurements && <p className="text-indigo-600 font-mono">المقاس: {p.measurements}</p>}
@@ -3152,7 +3491,7 @@ export default function Home() {
                   </div>
                   <div className="space-y-3">
                     {projects.filter(p => p.status === "QUOTATION" || p.status === "APPROVAL").map(p => (
-                      <div key={p.id} onClick={() => advanceProjectStatus(p.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                      <div key={p.id} onClick={() => { setSelectedProjectIdForMaterials(p.id); fetchProjectMaterials(p.id); fetchMeasurementHistory(p.id); setShowMaterialsModal(true); }} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
                         <p className="font-extrabold text-sm text-slate-800">{p.name}</p>
                         <p className="text-slate-500">العميل: {p.client}</p>
                         <div className="flex justify-between items-center pt-2">
@@ -3174,7 +3513,7 @@ export default function Home() {
                   </div>
                   <div className="space-y-3">
                     {projects.filter(p => p.status === "PRODUCTION").map(p => (
-                      <div key={p.id} onClick={() => advanceProjectStatus(p.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                      <div key={p.id} onClick={() => { setSelectedProjectIdForMaterials(p.id); fetchProjectMaterials(p.id); fetchMeasurementHistory(p.id); setShowMaterialsModal(true); }} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
                         <p className="font-extrabold text-sm text-slate-800">{p.name}</p>
                         <p className="text-slate-500">العميل: {p.client}</p>
                         <div className="flex justify-between items-center pt-2">
@@ -3196,7 +3535,7 @@ export default function Home() {
                   </div>
                   <div className="space-y-3">
                     {projects.filter(p => p.status === "INSTALLATION" || p.status === "DELIVERY" || p.status === "COMPLETED").map(p => (
-                      <div key={p.id} onClick={() => advanceProjectStatus(p.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                      <div key={p.id} onClick={() => { setSelectedProjectIdForMaterials(p.id); fetchProjectMaterials(p.id); fetchMeasurementHistory(p.id); setShowMaterialsModal(true); }} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
                         <p className="font-extrabold text-sm text-slate-800">{p.name}</p>
                         <p className="text-slate-500">العميل: {p.client}</p>
                         <div className="flex justify-between items-center pt-2">
@@ -3240,7 +3579,7 @@ export default function Home() {
                   </div>
                   <div className="space-y-3">
                     {appointments.filter(a => a.status === "VEHICLE_CHECK_IN" || a.status === "INSPECTION").map(a => (
-                      <div key={a.id} onClick={() => advanceAppointmentStatus(a.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                      <div key={a.id} onClick={() => { setSelectedProjectIdForMaterials(a.id); fetchProjectMaterials(a.id); fetchMeasurementHistory(a.id); setShowMaterialsModal(true); }} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
                         <p className="font-extrabold text-sm text-slate-800">{a.vehicle}</p>
                         <p className="text-slate-500">الخدمة: {a.service}</p>
                         <p className="text-slate-400">الفني: {a.mechanic}</p>
@@ -3263,7 +3602,7 @@ export default function Home() {
                   </div>
                   <div className="space-y-3">
                     {appointments.filter(a => a.status === "QUOTATION" || a.status === "APPROVAL").map(a => (
-                      <div key={a.id} onClick={() => advanceAppointmentStatus(a.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                      <div key={a.id} onClick={() => { setSelectedProjectIdForMaterials(a.id); fetchProjectMaterials(a.id); fetchMeasurementHistory(a.id); setShowMaterialsModal(true); }} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
                         <p className="font-extrabold text-sm text-slate-800">{a.vehicle}</p>
                         <p className="text-slate-500">الخدمة: {a.service}</p>
                         <div className="flex justify-between items-center pt-2">
@@ -3285,7 +3624,7 @@ export default function Home() {
                   </div>
                   <div className="space-y-3">
                     {appointments.filter(a => a.status === "REPAIR" || a.status === "QUALITY_CHECK").map(a => (
-                      <div key={a.id} onClick={() => advanceAppointmentStatus(a.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                      <div key={a.id} onClick={() => { setSelectedProjectIdForMaterials(a.id); fetchProjectMaterials(a.id); fetchMeasurementHistory(a.id); setShowMaterialsModal(true); }} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
                         <p className="font-extrabold text-sm text-slate-800">{a.vehicle}</p>
                         <p className="text-slate-500">الخدمة: {a.service}</p>
                         <p className="text-slate-400">الفني: {a.mechanic}</p>
@@ -3308,7 +3647,7 @@ export default function Home() {
                   </div>
                   <div className="space-y-3">
                     {appointments.filter(a => a.status === "DELIVERY").map(a => (
-                      <div key={a.id} onClick={() => advanceAppointmentStatus(a.id)} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
+                      <div key={a.id} onClick={() => { setSelectedProjectIdForMaterials(a.id); fetchProjectMaterials(a.id); fetchMeasurementHistory(a.id); setShowMaterialsModal(true); }} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 cursor-pointer space-y-2 text-xs">
                         <p className="font-extrabold text-sm text-slate-800">{a.vehicle}</p>
                         <p className="text-slate-500 font-bold text-emerald-600">تسليم وفاتورة</p>
                         <div className="flex justify-between items-center pt-2">
@@ -3585,6 +3924,340 @@ export default function Home() {
                     className="w-full mt-3 py-3.5 bg-indigo-650 hover:bg-indigo-700 text-white font-extrabold rounded-2xl text-sm transition-all cursor-pointer shadow-lg active:scale-[0.98]"
                   >
                     تأكيد تسجيل ملف العميل في النظام
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* OPEN SHIFT MODAL */}
+          {showOpenShiftModal && (
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white border border-slate-200 rounded-[32px] w-full max-w-md p-6 relative animate-in fade-in zoom-in-95 duration-200 text-right shadow-2xl">
+                <button onClick={() => setShowOpenShiftModal(false)} className="absolute top-4 left-4 text-slate-400 hover:text-slate-700 cursor-pointer text-base font-bold">✕</button>
+                <h3 className="text-xl font-black text-slate-900 mb-6 border-b border-slate-100 pb-4 text-right flex items-center gap-2 justify-end">
+                  <span>فتح وردية محاسبية جديدة</span>
+                  <Lock className="w-5 h-5 text-indigo-650" />
+                </h3>
+                <form onSubmit={handleOpenShift} className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-705 mb-2 text-right">رصيد عهدة الكاش الافتتاحي ($)</label>
+                    <input
+                      type="text"
+                      required
+                      value={shiftOpeningBalance}
+                      onChange={(e) => setShiftOpeningBalance(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-left font-mono font-bold"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-705 mb-2 text-right">ملاحظات فتح العهدة</label>
+                    <textarea
+                      value={shiftNotes}
+                      onChange={(e) => setShiftNotes(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-right font-medium"
+                      placeholder="عهدتي لصباح اليوم..."
+                      rows={3}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full py-4 bg-gradient-to-r from-indigo-600 to-violet-750 hover:from-indigo-700 hover:to-violet-800 text-white font-extrabold rounded-2xl text-sm transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    بدء الوردية وتفعيل الكاشير
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* CLOSE SHIFT MODAL */}
+          {showCloseShiftModal && (
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white border border-slate-200 rounded-[32px] w-full max-w-md p-6 relative animate-in fade-in zoom-in-95 duration-200 text-right shadow-2xl">
+                <button onClick={() => setShowCloseShiftModal(false)} className="absolute top-4 left-4 text-slate-400 hover:text-slate-700 cursor-pointer text-base font-bold">✕</button>
+                <h3 className="text-xl font-black text-slate-900 mb-6 border-b border-slate-100 pb-4 text-right flex items-center gap-2 justify-end">
+                  <span>إغلاق الوردية وتسوية الخزنة</span>
+                  <Lock className="w-5 h-5 text-rose-500" />
+                </h3>
+                <form onSubmit={handleCloseShift} className="space-y-5">
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 text-sm space-y-2.5 text-right">
+                    <p className="text-slate-600 font-bold text-right">ملخص الوردية الحالية:</p>
+                    <div className="flex justify-between">
+                      <span className="font-mono font-bold text-slate-800">{activeShift ? formatMoney(activeShift.openingBalance) : "$0.00"}</span>
+                      <span>الرصيد الافتتاحي:</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-mono font-bold text-emerald-600">
+                        {activeShift && activeShift.payments
+                          ? formatMoney(
+                              activeShift.payments
+                                .filter((p: any) => p.paymentMethod === "CASH")
+                                .reduce((acc: number, p: any) => acc + Number(p.amount), 0)
+                            )
+                          : "$0.00"}
+                      </span>
+                      <span>متحصلات المبيعات النقدية:</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-705 mb-2 text-right">المبلغ الفعلي الموجود بالدرج المالي ($)</label>
+                    <input
+                      type="text"
+                      required
+                      value={shiftActualCash}
+                      onChange={(e) => setShiftActualCash(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-left font-mono font-bold"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-705 mb-2 text-right">ملاحظات التسوية والتسليم</label>
+                    <textarea
+                      value={shiftNotes}
+                      onChange={(e) => setShiftNotes(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-right font-medium"
+                      placeholder="أية اختلافات أو فوارق تم رصدها..."
+                      rows={3}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full py-4 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white font-extrabold rounded-2xl text-sm transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    توثيق تسوية الدرج وإغلاق الوردية
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* PROJECT MATERIALS MODAL */}
+          {showMaterialsModal && (
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white border border-slate-200 rounded-[32px] w-full max-w-2xl p-6 md:p-8 relative animate-in fade-in zoom-in-95 duration-200 text-right shadow-2xl">
+                <button
+                  onClick={() => {
+                    setShowMaterialsModal(false);
+                    setSelectedProjectIdForMaterials(null);
+                  }}
+                  className="absolute top-4 left-4 text-slate-400 hover:text-slate-700 cursor-pointer text-base font-bold"
+                >
+                  ✕
+                </button>
+                <h3 className="text-xl font-black text-slate-900 mb-6 border-b border-slate-100 pb-4 text-right flex items-center gap-2 justify-end">
+                  <span>إدارة قطع الغيار والمواد المستهلكة بكارت الصيانة</span>
+                  <Wrench className="w-5 h-5 text-indigo-650" />
+                </h3>
+
+                {/* Add Material Form */}
+                <form onSubmit={handleAddProjectMaterial} className="bg-slate-50 border border-slate-200 p-5 rounded-2xl space-y-4 mb-6 text-right">
+                  <h4 className="text-sm font-extrabold text-slate-800">إضافة قطعة غيار أو مادة خام جديدة:</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-right">
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-slate-505 mb-1.5 text-right">اختر صنف المخزون المتوفر</label>
+                      <select
+                        required
+                        value={newMaterialVariantId}
+                        onChange={(e) => setNewMaterialVariantId(e.target.value)}
+                        className="w-full bg-white border border-slate-300 text-xs rounded-xl px-3 py-3 text-slate-800 focus:outline-none focus:border-indigo-500 cursor-pointer font-bold text-right"
+                      >
+                        <option value="">اختر قطعة الغيار...</option>
+                        {products.map((p) =>
+                          p.variants?.map((v: any) => (
+                            <option key={v.id} value={v.id}>
+                              {p.name} ({v.sku}) - بسعر: {formatMoney(v.price)}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-505 mb-1.5 text-right">الكمية المطلوبة</label>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={newMaterialQty}
+                        onChange={(e) => setNewMaterialQty(e.target.value)}
+                        className="w-full bg-white border border-slate-300 text-xs rounded-xl px-3 py-3 focus:outline-none text-slate-800 focus:border-indigo-500 text-center font-bold font-mono"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl text-xs transition-all shadow-md active:scale-[0.98] cursor-pointer"
+                    >
+                      إضافة قطعة الغيار وخصمها من المخزن
+                    </button>
+                  </div>
+                </form>
+
+                {/* Materials List */}
+                <div className="space-y-3">
+                  <h4 className="text-sm font-extrabold text-slate-800 text-right">قائمة المواد وقطع الغيار المربوطة حالياً بالطلب:</h4>
+                  {projectMaterials.length === 0 ? (
+                    <p className="text-xs text-slate-400 text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                      لم يتم استهلاك قطع غيار أو مواد خام مسجلة في هذا الطلب بعد.
+                    </p>
+                  ) : (
+                    <div className="max-h-[220px] overflow-y-auto space-y-2.5 pr-1 text-right">
+                      {projectMaterials.map((pm: any) => (
+                        <div key={pm.id} className="bg-white border border-slate-200 p-4 rounded-xl flex items-center justify-between text-right text-sm">
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => handleRemoveProjectMaterial(selectedProjectIdForMaterials!, pm.id)}
+                              className="text-rose-500 hover:text-rose-700 font-bold text-xs bg-rose-50 hover:bg-rose-100 p-2 rounded-lg transition-colors cursor-pointer"
+                            >
+                              إزالة وإعادة للمخزن
+                            </button>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-extrabold text-slate-800 text-xs text-right">{pm.variant?.product?.name || "قطعة غيار"}</p>
+                            <p className="text-[10px] text-slate-500 font-mono mt-0.5 text-right">SKU: {pm.variant?.sku} | الكمية: {Number(pm.quantity)} وحدة</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Measurements & Revisions History */}
+                <div className="border-t border-slate-100 pt-5 mt-5 text-right space-y-3">
+                  <h4 className="text-sm font-extrabold text-slate-800 text-right">سجل المقاسات الهندسية ومراجعاتها:</h4>
+                  
+                  {/* Edit Measurements Field */}
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!token || !selectedProjectIdForMaterials) return;
+                    const proj = projects.find(p => p.id === selectedProjectIdForMaterials) || appointments.find(a => a.id === selectedProjectIdForMaterials);
+                    const currentMeas = proj?.measurements || "";
+                    const newText = prompt("أدخل قيمة المقاس الهندسي الجديد:", currentMeas);
+                    if (newText === null) return;
+                    try {
+                      const res = await fetch(`${API_BASE_URL}/projects/${selectedProjectIdForMaterials}`, {
+                        method: "PATCH",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ measurements: { text: newText } })
+                      });
+                      if (res.ok) {
+                        fetchMeasurementHistory(selectedProjectIdForMaterials);
+                        fetchAllData();
+                        showTemporarySuccess("تم تعديل المقاس الهندسي وأرشفة المراجعة التاريخية!");
+                      }
+                    } catch (err) {}
+                  }} className="flex justify-between items-center bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-right">
+                    <button type="submit" className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-black text-xs rounded-xl cursor-pointer">
+                      تعديل المقاس الهندسي الحالي ✎
+                    </button>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 block font-bold text-right">المقاس النشط حالياً:</span>
+                      <span className="font-mono font-black text-indigo-700 text-sm text-right">
+                        {projects.find(p => p.id === selectedProjectIdForMaterials)?.measurements || appointments.find(a => a.id === selectedProjectIdForMaterials)?.service || "لم يسجل بعد"}
+                      </span>
+                    </div>
+                  </form>
+
+                  {/* History Log timeline */}
+                  {measurementHistory.length === 0 ? (
+                    <p className="text-[10px] text-slate-400 text-center py-4 bg-slate-50/50 rounded-xl">لا توجد مراجعات أو مقاسات هندسية مؤرشفة سابقا لهذا المشروع.</p>
+                  ) : (
+                    <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1 text-right">
+                      {measurementHistory.map((h: any, idx: number) => (
+                        <div key={h.id} className="bg-slate-50/70 p-3 rounded-xl border border-slate-150 text-xs flex justify-between items-center text-right font-medium">
+                          <span className="text-[10px] text-slate-400 font-mono text-left">{new Date(h.changedAt).toLocaleString("ar-SA")}</span>
+                          <div className="text-right">
+                            <span className="font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md text-[10px] me-2 text-right">إصدار #{measurementHistory.length - idx}</span>
+                            <span className="font-mono font-black text-indigo-600 text-right">{h.measurementsText}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Status Advancement Section */}
+                {(() => {
+                  const proj = projects.find((p: any) => p.id === selectedProjectIdForMaterials);
+                  const isApp = appointments.find((a: any) => a.id === selectedProjectIdForMaterials);
+                  const activeObj = proj || isApp;
+                  if (!activeObj) return null;
+
+                  return (
+                    <div className="border-t border-slate-105 pt-5 mt-5 flex justify-between items-center text-right">
+                      <button
+                        onClick={async () => {
+                          if (proj) {
+                            await advanceProjectStatus(proj.id);
+                          } else if (isApp) {
+                            await advanceAppointmentStatus(isApp.id);
+                          }
+                          // Refresh details in modal
+                          fetchProjectMaterials(selectedProjectIdForMaterials!);
+                          fetchMeasurementHistory(selectedProjectIdForMaterials!);
+                        }}
+                        className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-2xl text-xs transition-all active:scale-[0.98] cursor-pointer"
+                      >
+                        نقل كارت العمل للمرحلة التالية ➔
+                      </button>
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-400 block font-bold text-right">الحالة التشغيلية الحالية:</span>
+                        <span className="font-bold text-slate-800 text-sm">
+                          {getStatusTextArabic(activeObj.status)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+              </div>
+            </div>
+          )}
+
+          {/* TAX RATE MODAL */}
+          {showTaxModal && (
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white border border-slate-200 rounded-[32px] w-full max-w-md p-6 relative animate-in fade-in zoom-in-95 duration-200 text-right shadow-2xl">
+                <button onClick={() => setShowTaxModal(false)} className="absolute top-4 left-4 text-slate-400 hover:text-slate-700 cursor-pointer text-base font-bold">✕</button>
+                <h3 className="text-xl font-black text-slate-900 mb-6 border-b border-slate-100 pb-4 text-right flex items-center gap-2 justify-end">
+                  <span>إضافة نسبة ضريبية جديدة</span>
+                  <Percent className="w-5 h-5 text-indigo-650" />
+                </h3>
+                <form onSubmit={handleCreateTaxRate} className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2 text-right">اسم النسبة الضريبية</label>
+                    <input
+                      type="text"
+                      required
+                      value={newTaxName}
+                      onChange={(e) => setNewTaxName(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-right font-bold"
+                      placeholder="ضريبة القيمة المضافة 15%"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2 text-right">النسبة المئوية (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      required
+                      value={newTaxRate}
+                      onChange={(e) => setNewTaxRate(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none text-left font-mono font-bold"
+                      placeholder="15.00"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full py-4 bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white font-extrabold rounded-2xl text-sm transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    حفظ وتنشيط النسبة الضريبية
                   </button>
                 </form>
               </div>

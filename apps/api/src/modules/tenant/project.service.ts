@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateProjectDto, UpdateProjectDto, CreateTaskDto, UpdateTaskDto } from '@crm/dto';
 import { Prisma, TenantContext } from '@crm/database';
@@ -73,9 +73,24 @@ export class ProjectService {
   }
 
   async update(id: string, updateDto: UpdateProjectDto) {
-    await this.findOne(id);
+    const project = await this.findOne(id);
+    const tenantId = TenantContext.getTenantId();
+    if (!tenantId) throw new Error('Tenant context missing.');
 
-    return this.prisma.project.update({
+    // 1. If measurements are being updated, record revision history
+    if (updateDto.measurements && JSON.stringify(updateDto.measurements) !== JSON.stringify(project.measurements)) {
+      await this.prisma.projectMeasurementHistory.create({
+        data: {
+          tenantId,
+          projectId: id,
+          measurements: updateDto.measurements,
+          notes: `Updated measurements to: ${JSON.stringify(updateDto.measurements)}`,
+        }
+      });
+    }
+
+    // 2. Perform the update
+    const updatedProject = await this.prisma.project.update({
       where: { id },
       data: {
         customerId: updateDto.customerId,
@@ -93,6 +108,59 @@ export class ProjectService {
         tasks: true,
       },
     });
+
+    // 3. Auto-billing: If status is advanced to DELIVERY or COMPLETED, auto-generate invoice for parts
+    if (updateDto.status === 'DELIVERY' || updateDto.status === 'COMPLETED') {
+      const existingInv = await this.prisma.invoice.findFirst({
+        where: { customerId: project.customerId, tenantId, notes: `Project Auto-Bill: ${project.name}` }
+      });
+      if (!existingInv) {
+        const mats = await this.prisma.projectMaterial.findMany({
+          where: { projectId: id, tenantId }
+        });
+        const warehouse = await this.prisma.warehouse.findFirst({ where: { tenantId } });
+
+        if (warehouse && mats.length > 0) {
+          let subTotal = new Prisma.Decimal(0.00);
+          for (const m of mats) {
+            subTotal = subTotal.add(m.totalPrice);
+          }
+          const taxTotal = subTotal.mul(0.15);
+          const grandTotal = subTotal.add(taxTotal);
+          const invoiceNumber = `PRJ-${id.slice(-6)}-${Date.now().toString().slice(-4)}`;
+
+          await this.prisma.invoice.create({
+            data: {
+              tenantId,
+              customerId: project.customerId,
+              invoiceNumber,
+              status: 'UNPAID',
+              subTotal,
+              taxTotal,
+              discountTotal: 0,
+              grandTotal,
+               notes: `Project Auto-Bill: ${project.name}`,
+              issueDate: new Date(),
+              dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days payment terms
+              items: {
+                create: mats.map(m => ({
+                  tenantId,
+                  variantId: m.variantId,
+                  quantity: m.quantity,
+                  unitPrice: m.unitPrice,
+                  taxRate: 15.00,
+                  taxAmount: new Prisma.Decimal(m.totalPrice).mul(0.15),
+                  discountAmount: 0,
+                  totalAmount: new Prisma.Decimal(m.totalPrice).mul(1.15)
+                }))
+              }
+            }
+          });
+        }
+      }
+    }
+
+    return updatedProject;
   }
 
   async remove(id: string) {
@@ -182,5 +250,117 @@ export class ProjectService {
     });
 
     return { success: true };
+  }
+
+  // --- PROJECT MATERIALS SUPPORT ---
+  async addMaterial(projectId: string, dto: any) {
+    const tenantId = TenantContext.getTenantId();
+    if (!tenantId) throw new Error('Tenant context missing.');
+
+    await this.findOne(projectId);
+    const variant = await this.prisma.productVariant.findFirst({
+      where: { id: dto.variantId, tenantId },
+    });
+    if (!variant) throw new NotFoundException('Product variant not found.');
+
+    const warehouse = await this.prisma.warehouse.findFirst({ where: { tenantId } });
+    if (!warehouse) throw new NotFoundException('No warehouse registered. Cannot deduct parts.');
+
+    return this.prisma.$transaction(async (tx) => {
+      const balance = await tx.inventoryBalance.findFirst({
+        where: { warehouseId: warehouse.id, variantId: dto.variantId, tenantId },
+      });
+      const stock = balance ? Number(balance.quantity) : 0;
+      if (stock < dto.quantity) {
+        throw new BadRequestException(`Insufficient stock. Available: ${stock}, Requested: ${dto.quantity}`);
+      }
+
+      await tx.inventoryBalance.update({
+        where: {
+          warehouseId_variantId: {
+            warehouseId: warehouse.id,
+            variantId: dto.variantId,
+          },
+        },
+        data: {
+          quantity: { decrement: dto.quantity },
+        },
+      });
+
+      const qty = Number(dto.quantity);
+      const price = new Prisma.Decimal(dto.unitPrice);
+      const total = price.mul(qty);
+
+      return tx.projectMaterial.create({
+        data: {
+          tenantId,
+          projectId,
+          variantId: dto.variantId,
+          quantity: qty,
+          unitPrice: price,
+          totalPrice: total,
+        },
+        include: {
+          variant: { include: { product: true } },
+        },
+      });
+    });
+  }
+
+  async removeMaterial(projectId: string, materialId: string) {
+    const tenantId = TenantContext.getTenantId();
+    if (!tenantId) throw new Error('Tenant context missing.');
+
+    const material = await this.prisma.projectMaterial.findFirst({
+      where: { id: materialId, projectId, tenantId },
+    });
+    if (!material) throw new NotFoundException('Project material not found.');
+
+    const warehouse = await this.prisma.warehouse.findFirst({ where: { tenantId } });
+
+    await this.prisma.$transaction(async (tx) => {
+      if (warehouse) {
+        await tx.inventoryBalance.update({
+          where: {
+            warehouseId_variantId: {
+              warehouseId: warehouse.id,
+              variantId: material.variantId,
+            },
+          },
+          data: {
+            quantity: { increment: material.quantity },
+          },
+        });
+      }
+
+      await tx.projectMaterial.delete({
+        where: { id: materialId },
+      });
+    });
+
+    return { success: true };
+  }
+
+  async findMaterials(projectId: string) {
+    const tenantId = TenantContext.getTenantId();
+    if (!tenantId) return [];
+
+    return this.prisma.projectMaterial.findMany({
+      where: { projectId, tenantId },
+      include: {
+        variant: { include: { product: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getMeasurementHistory(projectId: string) {
+    const tenantId = TenantContext.getTenantId();
+    if (!tenantId) return [];
+
+    return this.prisma.projectMeasurementHistory.findMany({
+      where: { projectId, tenantId },
+      orderBy: { changedAt: 'desc' },
+    });
   }
 }

@@ -7,7 +7,7 @@ import { Prisma, TenantContext } from '@crm/database';
 export class InvoiceService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createDto: CreateInvoiceDto) {
+  async create(createDto: CreateInvoiceDto, userId?: string) {
     const tenantId = TenantContext.getTenantId();
     if (!tenantId) {
       throw new Error('Tenant context missing.');
@@ -20,6 +20,32 @@ export class InvoiceService {
       });
       if (!customer) {
         throw new NotFoundException('Customer not found.');
+      }
+
+      // Enforce credit limit validation for unpaid invoices
+      if (createDto.status !== 'PAID') {
+        const outstanding = Number(customer.outstandingBalance);
+        const limit = Number(customer.creditLimit);
+        
+        let estimatedTotal = 0;
+        for (const item of createDto.items) {
+          const variant = await this.prisma.productVariant.findFirst({
+            where: { id: item.variantId, tenantId }
+          });
+          if (variant) {
+            const qty = item.quantity;
+            const price = Number(item.unitPrice || variant.price);
+            const disc = Number(item.discountAmount || 0);
+            const taxRate = Number(item.taxRate || 15);
+            const sub = (qty * price) - disc;
+            estimatedTotal += sub * (1 + taxRate / 100);
+          }
+        }
+        if (outstanding + estimatedTotal > limit) {
+          throw new ConflictException(
+            `Customer credit limit exceeded! Max Allowed: ${limit}, Current Outstanding: ${outstanding}, New Invoice Estimated: ${estimatedTotal.toFixed(2)}. Limit exceeded by ${(outstanding + estimatedTotal - limit).toFixed(2)}.`
+          );
+        }
       }
     }
 
@@ -161,6 +187,16 @@ export class InvoiceService {
 
       // H. If PAID, create Payment record
       if (createDto.status === 'PAID') {
+        let shiftId: string | null = null;
+        if (userId) {
+          const activeShift = await tx.shift.findFirst({
+            where: { tenantId, userId, status: 'OPEN' }
+          });
+          if (activeShift) {
+            shiftId = activeShift.id;
+          }
+        }
+
         await tx.payment.create({
           data: {
             tenantId,
@@ -170,6 +206,7 @@ export class InvoiceService {
             status: 'COMPLETED',
             reference: 'System Auto-Payment',
             paidAt: new Date(),
+            shiftId,
           },
         });
       }
@@ -182,7 +219,7 @@ export class InvoiceService {
   }
 
   // --- High-Speed POS Billing Checkout ---
-  async posCheckout(posDto: POSCheckoutDto) {
+  async posCheckout(posDto: POSCheckoutDto, userId?: string) {
     // 1. Map to CreateInvoiceDto
     const invoiceDto: CreateInvoiceDto = {
       customerId: posDto.customerId,
@@ -194,7 +231,7 @@ export class InvoiceService {
     };
 
     // 2. Execute standard invoice transaction
-    const invoice = await this.create(invoiceDto);
+    const invoice = await this.create(invoiceDto, userId);
 
     // 3. Update payment details with the user's specific payment method
     if (invoice) {

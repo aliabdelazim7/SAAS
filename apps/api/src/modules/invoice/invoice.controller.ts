@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, UseGuards, Req } from '@nestjs/common';
 import { InvoiceService } from './invoice.service';
 import { CreateInvoiceDto, POSCheckoutDto } from '@crm/dto';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -12,14 +12,14 @@ export class InvoiceController {
 
   @Post()
   @RequirePermission('sales', 'create')
-  async create(@Body() createDto: CreateInvoiceDto) {
-    return this.invoiceService.create(createDto);
+  async create(@Req() req: any, @Body() createDto: CreateInvoiceDto) {
+    return this.invoiceService.create(createDto, req.user.userId);
   }
 
   @Post('pos')
   @RequirePermission('pos', 'create')
-  async posCheckout(@Body() posDto: POSCheckoutDto) {
-    return this.invoiceService.posCheckout(posDto);
+  async posCheckout(@Req() req: any, @Body() posDto: POSCheckoutDto) {
+    return this.invoiceService.posCheckout(posDto, req.user.userId);
   }
 
   @Get()

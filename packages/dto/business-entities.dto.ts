@@ -332,3 +332,96 @@ export class UpdateProductionOrderDto {
   @IsString()
   status?: string;
 }
+
+// --- SHIFT DTOs ---
+export class OpenShiftDto {
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0)
+  openingBalance: number;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class CloseShiftDto {
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0)
+  actualCash: number;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+// --- PROJECT MATERIAL DTOs ---
+export class AddProjectMaterialDto {
+  @IsNotEmpty()
+  @IsUUID()
+  variantId: string;
+
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(1)
+  quantity: number;
+
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0)
+  unitPrice: number;
+}
+
+// --- BOM DTOs ---
+export class BOMItemDto {
+  @IsNotEmpty()
+  @IsUUID()
+  variantId: string;
+
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0.0001)
+  quantity: number;
+
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0)
+  unitCost: number;
+}
+
+export class CreateBOMDto {
+  @IsNotEmpty()
+  @IsUUID()
+  variantId: string;
+
+  @IsNotEmpty()
+  @IsString()
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsNotEmpty()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => BOMItemDto)
+  items: BOMItemDto[];
+}
+
+// --- TAX RATE DTOs ---
+export class CreateTaxRateDto {
+  @IsNotEmpty()
+  @IsString()
+  name: string;
+
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0)
+  rate: number;
+
+  @IsOptional()
+  isDefault?: boolean;
+}
+

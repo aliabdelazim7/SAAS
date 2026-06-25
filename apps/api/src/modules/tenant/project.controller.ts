@@ -68,4 +68,31 @@ export class ProjectController {
   async deleteTask(@Param('id') projectId: string, @Param('taskId') taskId: string) {
     return this.projectService.removeTask(taskId);
   }
+
+  // --- PROJECT MATERIALS ---
+  @Post(':id/materials')
+  @RequirePermission('projects', 'edit')
+  async addMaterial(@Param('id') projectId: string, @Body() dto: any) {
+    return this.projectService.addMaterial(projectId, dto);
+  }
+
+  @Delete(':id/materials/:materialId')
+  @RequirePermission('projects', 'edit')
+  async removeMaterial(@Param('id') projectId: string, @Param('materialId') materialId: string) {
+    return this.projectService.removeMaterial(projectId, materialId);
+  }
+
+  @Get(':id/materials')
+  @RequirePermission('projects', 'view')
+  async getMaterials(@Param('id') projectId: string) {
+    return this.projectService.findMaterials(projectId);
+  }
+
+  // --- MEASUREMENT HISTORY ---
+  @Get(':id/measurement-history')
+  @RequirePermission('projects', 'view')
+  async getMeasurementHistory(@Param('id') projectId: string) {
+    return this.projectService.getMeasurementHistory(projectId);
+  }
 }
+
