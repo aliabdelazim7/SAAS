@@ -132,6 +132,8 @@ export class WarehouseService {
       return tx.inventoryBalance.findFirst({
         where: { warehouseId: adjustStockDto.warehouseId, variantId: adjustStockDto.variantId }
       });
+    }, {
+      timeout: 15000
     });
   }
 

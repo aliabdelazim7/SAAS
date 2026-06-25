@@ -85,6 +85,8 @@ export class PurchaseService {
       }
 
       return po;
+    }, {
+      timeout: 15000
     });
   }
 

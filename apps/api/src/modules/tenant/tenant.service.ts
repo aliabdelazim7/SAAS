@@ -3,10 +3,14 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { RegisterDto, UpdateOrganizationDto, InviteMemberDto } from '@crm/dto';
 import * as argon2 from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
+import { AccountingService } from '../accounting/accounting.service';
 
 @Injectable()
 export class TenantService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly accountingService: AccountingService
+  ) {}
 
   /**
    * Bootstraps a new tenant workspace atomically inside a database transaction.
@@ -292,6 +296,9 @@ export class TenantService {
         }
       }
 
+      // F. Seed default Chart of Accounts
+      await this.accountingService.seedChartOfAccounts(tx, tenant.id);
+
       return ownerUser;
     }, {
       timeout: 30000 // 30 seconds
@@ -565,6 +572,9 @@ export class TenantService {
           }
         }
       }
+
+      // 9. Seed default Chart of Accounts
+      await this.accountingService.seedChartOfAccounts(tx, tenantId);
 
       return { success: true };
     });

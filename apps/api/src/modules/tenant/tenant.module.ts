@@ -15,8 +15,10 @@ import { TaxRateService } from './tax-rate.service';
 import { TaxRateController } from './tax-rate.controller';
 import { InventoryMovementService } from './inventory-movement.service';
 import { DocumentEngineService } from './document-engine.service';
+import { AccountingModule } from '../accounting/accounting.module';
 
 @Module({
+  imports: [AccountingModule],
   controllers: [
     TenantController,
     ProjectController,

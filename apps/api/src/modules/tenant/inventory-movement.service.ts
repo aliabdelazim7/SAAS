@@ -1,10 +1,14 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TenantContext, Prisma } from '@crm/database';
+import { AccountingService } from '../accounting/accounting.service';
 
 @Injectable()
 export class InventoryMovementService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly accountingService: AccountingService
+  ) {}
 
   private async resolveLocationForWarehouse(warehouseId: string, client: Prisma.TransactionClient): Promise<string> {
     const tenantId = TenantContext.getTenantId();
@@ -95,7 +99,7 @@ export class InventoryMovementService {
       }
     }
 
-    return client.inventoryMovement.create({
+    const movement = await client.inventoryMovement.create({
       data: {
         tenantId,
         variantId: data.variantId,
@@ -108,5 +112,56 @@ export class InventoryMovementService {
         referenceId: data.referenceId
       }
     });
+
+    const totalCost = Number(movement.quantity) * Number(movement.unitCost);
+    if (totalCost > 0) {
+      if (data.movementType === 'SALE' || data.movementType === 'CONSUMPTION' || data.movementType === 'SCRAP') {
+        await this.accountingService.postJournalEntry(client, {
+          description: `Inventory Out (${data.movementType}) SKU: ${variant.sku}`,
+          referenceType: 'STOCK_MOVEMENT',
+          referenceId: movement.id,
+          postings: [
+            { accountCode: '5000', debit: totalCost, credit: 0.00 },
+            { accountCode: '1400', debit: 0.00, credit: totalCost },
+          ],
+        });
+      } else if (data.movementType === 'PURCHASE') {
+        await this.accountingService.postJournalEntry(client, {
+          description: `Inventory In (Purchase) SKU: ${variant.sku}`,
+          referenceType: 'STOCK_MOVEMENT',
+          referenceId: movement.id,
+          postings: [
+            { accountCode: '1400', debit: totalCost, credit: 0.00 },
+            { accountCode: '2000', debit: 0.00, credit: totalCost },
+          ],
+        });
+      } else if (data.movementType === 'ADJUSTMENT') {
+        const isReduction = !!data.sourceWarehouseId && !data.destWarehouseId;
+        const isAddition = !!data.destWarehouseId && !data.sourceWarehouseId;
+        if (isReduction) {
+          await this.accountingService.postJournalEntry(client, {
+            description: `Inventory Adjustment (Deficit) SKU: ${variant.sku}`,
+            referenceType: 'STOCK_MOVEMENT',
+            referenceId: movement.id,
+            postings: [
+              { accountCode: '5000', debit: totalCost, credit: 0.00 },
+              { accountCode: '1400', debit: 0.00, credit: totalCost },
+            ],
+          });
+        } else if (isAddition) {
+          await this.accountingService.postJournalEntry(client, {
+            description: `Inventory Adjustment (Surplus) SKU: ${variant.sku}`,
+            referenceType: 'STOCK_MOVEMENT',
+            referenceId: movement.id,
+            postings: [
+              { accountCode: '1400', debit: totalCost, credit: 0.00 },
+              { accountCode: '5000', debit: 0.00, credit: totalCost },
+            ],
+          });
+        }
+      }
+    }
+
+    return movement;
   }
 }

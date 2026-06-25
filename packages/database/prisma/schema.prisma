@@ -57,6 +57,8 @@ model Tenant {
   stockLocations   StockLocation[]
   inventoryMovements InventoryMovement[]
   genericDocuments GenericDocument[]
+  accounts         Account[]
+  ledgerPostings   LedgerPosting[]
 
   @@map("tenants")
   @@schema("core_platform")
@@ -870,7 +872,7 @@ model GenericDocument {
   docType        String                // INVOICE, QUOTATION, PURCHASE_ORDER, GRN, CREDIT_NOTE
   docNumber      String                @map("doc_number")
   partyType      String                // CUSTOMER, SUPPLIER
-  partyId        String                @map("party_id") @db.Uuid
+  partyId        String?               @map("party_id") @db.Uuid
   currency       String                @default("USD")
   exchangeRate   Decimal               @default(1.0000) @map("exchange_rate") @db.Decimal(10, 4)
   subTotal       Decimal               @map("sub_total") @db.Decimal(12, 2)
@@ -905,3 +907,40 @@ model GenericDocumentLine {
   @@map("generic_document_lines")
   @@schema("tenant_data")
 }
+
+model Account {
+  id        String          @id @default(uuid()) @db.Uuid
+  tenantId  String          @map("tenant_id") @db.Uuid
+  code      String
+  name      String
+  type      String          // ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
+  isSystem  Boolean         @default(false) @map("is_system")
+  createdAt DateTime        @default(now()) @map("created_at")
+  
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  postings  LedgerPosting[]
+
+  @@unique([tenantId, code])
+  @@map("accounts")
+  @@schema("tenant_data")
+}
+
+model LedgerPosting {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  accountId     String    @map("account_id") @db.Uuid
+  debit         Decimal   @db.Decimal(12, 2)
+  credit        Decimal   @db.Decimal(12, 2)
+  transactionId String    @map("transaction_id") @db.Uuid
+  referenceType String    @map("reference_type") // e.g. INVOICE, PAYMENT, STOCK_ADJUSTMENT, MANUAL, EXPENSE
+  referenceId   String    @map("reference_id")
+  description   String?
+  postedAt      DateTime  @default(now()) @map("posted_at")
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account       Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("ledger_postings")
+  @@schema("tenant_data")
+}
+

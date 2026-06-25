@@ -14,6 +14,7 @@ import { ProductModule } from './modules/product/product.module';
 import { WarehouseModule } from './modules/warehouse/warehouse.module';
 import { InvoiceModule } from './modules/invoice/invoice.module';
 import { ExpenseModule } from './modules/expense/expense.module';
+import { AccountingModule } from './modules/accounting/accounting.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { ExpenseModule } from './modules/expense/expense.module';
     WarehouseModule,
     InvoiceModule,
     ExpenseModule,
+    AccountingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

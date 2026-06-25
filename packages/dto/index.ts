@@ -6,4 +6,4 @@ export * from './warehouse.dto';
 export * from './invoice.dto';
 export * from './expense.dto';
 export * from './business-entities.dto';
-
+export * from './accounting.dto';

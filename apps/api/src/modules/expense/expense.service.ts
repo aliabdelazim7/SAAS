@@ -2,10 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateExpenseDto, UpdateExpenseDto } from '@crm/dto';
 import { Prisma, TenantContext } from '@crm/database';
+import { AccountingService } from '../accounting/accounting.service';
 
 @Injectable()
 export class ExpenseService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly accountingService: AccountingService
+  ) {}
 
   async create(createDto: CreateExpenseDto) {
     const tenantId = TenantContext.getTenantId();
@@ -13,15 +17,32 @@ export class ExpenseService {
       throw new Error('Tenant context missing.');
     }
 
-    return this.prisma.expense.create({
-      data: {
-        tenantId,
-        amount: new Prisma.Decimal(createDto.amount),
-        category: createDto.category.toUpperCase(),
-        description: createDto.description,
-        expenseDate: new Date(createDto.expenseDate),
-        receiptUrl: createDto.receiptUrl,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const expense = await tx.expense.create({
+        data: {
+          tenantId,
+          amount: new Prisma.Decimal(createDto.amount),
+          category: createDto.category.toUpperCase(),
+          description: createDto.description,
+          expenseDate: new Date(createDto.expenseDate),
+          receiptUrl: createDto.receiptUrl,
+        },
+      });
+
+      // Post Operating Expense to double-entry general ledger
+      await this.accountingService.postJournalEntry(tx, {
+        description: `Expense payout - ${expense.category}: ${expense.description || ''}`,
+        referenceType: 'EXPENSE',
+        referenceId: expense.id,
+        postings: [
+          { accountCode: '5100', debit: Number(expense.amount), credit: 0.00 },
+          { accountCode: '1000', debit: 0.00, credit: Number(expense.amount) },
+        ],
+      });
+
+      return expense;
+    }, {
+      timeout: 15000
     });
   }
 

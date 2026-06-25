@@ -11,7 +11,7 @@ export class DocumentEngineService {
       docType: string; // INVOICE, QUOTATION, PURCHASE_ORDER, GRN, CREDIT_NOTE
       docNumber?: string;
       partyType: string; // CUSTOMER, SUPPLIER
-      partyId: string;
+      partyId?: string | null;
       currency?: string;
       exchangeRate?: number;
       status?: string;
@@ -72,7 +72,7 @@ export class DocumentEngineService {
         docType: data.docType,
         docNumber,
         partyType: data.partyType,
-        partyId: data.partyId,
+        partyId: data.partyId || null,
         currency: data.currency || 'USD',
         exchangeRate: new Prisma.Decimal(data.exchangeRate ?? 1.0000),
         subTotal,

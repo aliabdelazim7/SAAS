@@ -4,13 +4,15 @@ import { CreateInvoiceDto, POSCheckoutDto } from '@crm/dto';
 import { Prisma, TenantContext } from '@crm/database';
 import { DocumentEngineService } from '../tenant/document-engine.service';
 import { InventoryMovementService } from '../tenant/inventory-movement.service';
+import { AccountingService } from '../accounting/accounting.service';
 
 @Injectable()
 export class InvoiceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly docEngine: DocumentEngineService,
-    private readonly inventoryMovement: InventoryMovementService
+    private readonly inventoryMovement: InventoryMovementService,
+    private readonly accountingService: AccountingService
   ) {}
 
   async create(createDto: CreateInvoiceDto, userId?: string) {
@@ -151,7 +153,7 @@ export class InvoiceService {
         docType: 'INVOICE',
         docNumber: invoiceNumber,
         partyType: 'CUSTOMER',
-        partyId: createDto.customerId || '',
+        partyId: createDto.customerId || null,
         status: createDto.status,
         lines: resolvedItems.map(item => ({
           variantId: item.variantId,
@@ -228,10 +230,32 @@ export class InvoiceService {
         });
       }
 
+      // Post billing entry to double-entry general ledger
+      const isPaid = createDto.status === 'PAID';
+      await this.accountingService.postJournalEntry(tx, {
+        description: `Invoice ${invoiceNumber} Billing`,
+        referenceType: 'INVOICE',
+        referenceId: invoice.id,
+        postings: [
+          {
+            accountCode: isPaid ? '1000' : '1200',
+            debit: Number(grandTotal),
+            credit: 0.00,
+          },
+          {
+            accountCode: '4000',
+            debit: 0.00,
+            credit: Number(grandTotal),
+          },
+        ],
+      });
+
       return tx.invoice.findUnique({
         where: { id: invoice.id },
         include: { items: { include: { variant: true } } },
       });
+    }, {
+      timeout: 15000
     });
   }
 
