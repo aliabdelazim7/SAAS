@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { TenantContext } from '@crm/database';
+import { TenantContext, Prisma } from '@crm/database';
 import { CreateTaxRateDto } from '@crm/dto';
 
 @Injectable()
@@ -24,7 +24,7 @@ export class TaxRateService {
         data: {
           tenantId,
           name: dto.name,
-          rate: new Object(dto.rate) as any, // Decimal type compatible
+          rate: new Prisma.Decimal(dto.rate),
           isDefault: !!dto.isDefault,
         },
       });
