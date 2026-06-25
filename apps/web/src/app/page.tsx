@@ -35,7 +35,9 @@ import {
   Settings,
   Lock,
   History,
-  Scale
+  Scale,
+  Wallet,
+  AlertTriangle
 } from "lucide-react";
 
 const getApiUrl = () => {
@@ -1310,8 +1312,6 @@ export default function Home() {
 
   const isModuleEnabled = (modId: string) => {
     if (!tenantProfile || !tenantProfile.tenantModules) {
-      // Fallback before tenant profile is loaded:
-      // If we know the user's template type from JWT, we can deduce it
       const currentType = tenantInfo?.industryType || regIndustryType;
       if (currentType === "FURNITURE") {
         return ["customers", "projects", "measurements", "quotations", "materials", "inventory", "production", "installations", "finance"].includes(modId);
@@ -1325,7 +1325,6 @@ export default function Home() {
       if (currentType === "SERVICE") {
         return ["crm", "projects", "teams", "contracts", "finance"].includes(modId);
       }
-      // Default to RETAIL template modules
       return ["products", "categories", "brands", "inventory", "warehouses", "purchases", "sales", "pos", "finance", "customers"].includes(modId);
     }
     return tenantProfile.tenantModules.some((m: any) => m.moduleId === modId && m.isEnabled);
@@ -1349,52 +1348,56 @@ export default function Home() {
       const totalEstimatedAmt = projects.reduce((acc, p) => acc + p.amount, 0);
 
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white border-t-4 border-indigo-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-            <div className="absolute top-0 left-0 w-28 h-28 bg-indigo-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">المقاسات المعلقة</span>
-              <Wrench className="w-6 h-6 text-indigo-500" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Card 1: المقاسات المعلقة */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-indigo-50 text-indigo-600 shrink-0">
+              <Wrench className="w-8 h-8" />
             </div>
-            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{pendingMeasurementsCount} زيارات</p>
-            <div className="flex items-center gap-1.5 mt-3 text-xs text-indigo-600 font-bold">
-              <span>بانتظار زيارة المهندس الميداني</span>
-            </div>
-          </div>
-
-          <div className="bg-white border-t-4 border-amber-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-            <div className="absolute top-0 left-0 w-28 h-28 bg-amber-550 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">مشاريع في الورشة</span>
-              <Cpu className="w-6 h-6 text-amber-500" />
-            </div>
-            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{productionCount} مشاريع</p>
-            <div className="flex items-center gap-1.5 mt-3 text-xs text-amber-600 font-bold">
-              <span>قيد التصنيع وتجهيز الخشب</span>
+            <div>
+              <p className="text-slate-500 text-sm font-bold mb-1">المقاسات المعلقة</p>
+              <h2 className="text-2xl font-black text-slate-800">
+                {pendingMeasurementsCount} <span className="text-sm text-slate-400 font-normal">زيارات</span>
+              </h2>
             </div>
           </div>
 
-          <div className="bg-white border-t-4 border-emerald-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-            <div className="absolute top-0 left-0 w-28 h-28 bg-emerald-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">إجمالي قيم المشاريع</span>
-              <Coins className="w-6 h-6 text-emerald-500" />
+          {/* Card 2: مشاريع في الورشة */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-amber-50 text-amber-600 shrink-0">
+              <Cpu className="w-8 h-8" />
             </div>
-            <p className="text-3xl font-black text-emerald-600 mt-3 font-mono">{formatMoney(totalEstimatedAmt)}</p>
-            <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
-              <span>القيمة التقديرية التعاقدية</span>
+            <div>
+              <p className="text-slate-500 text-sm font-bold mb-1">مشاريع في الورشة</p>
+              <h2 className="text-2xl font-black text-slate-800">
+                {productionCount} <span className="text-sm text-slate-400 font-normal">مشاريع</span>
+              </h2>
             </div>
           </div>
 
-          <div className="bg-white border-t-4 border-rose-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-            <div className="absolute top-0 left-0 w-28 h-28 bg-rose-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">مشاريع جارية</span>
-              <Briefcase className="w-6 h-6 text-rose-500" />
+          {/* Card 3: إجمالي قيم المشاريع */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-emerald-50 text-emerald-600 shrink-0">
+              <Coins className="w-8 h-8" />
             </div>
-            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{activeProjectsCount} نشط</p>
-            <div className="flex items-center gap-1.5 mt-3 text-xs text-rose-600 font-bold">
-              <span>قيد العمل والمتابعة</span>
+            <div>
+              <p className="text-slate-500 text-sm font-bold mb-1">إجمالي قيم المشاريع</p>
+              <h2 className="text-2xl font-black text-emerald-600">
+                {formatMoney(totalEstimatedAmt)}
+              </h2>
+            </div>
+          </div>
+
+          {/* Card 4: مشاريع جارية */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-rose-50 text-rose-600 shrink-0">
+              <Briefcase className="w-8 h-8" />
+            </div>
+            <div>
+              <p className="text-slate-500 text-sm font-bold mb-1">مشاريع جارية</p>
+              <h2 className="text-2xl font-black text-slate-800">
+                {activeProjectsCount} <span className="text-sm text-slate-400 font-normal">نشط</span>
+              </h2>
             </div>
           </div>
         </div>
@@ -1408,52 +1411,56 @@ export default function Home() {
       const totalRevenue = appointments.reduce((acc, a) => acc + a.cost, 0);
 
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white border-t-4 border-indigo-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-            <div className="absolute top-0 left-0 w-28 h-28 bg-indigo-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">سيارات قيد الفحص</span>
-              <Search className="w-6 h-6 text-indigo-500" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Card 1: سيارات قيد الفحص */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-indigo-50 text-indigo-600 shrink-0">
+              <Search className="w-8 h-8" />
             </div>
-            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{pendingCount} سيارات</p>
-            <div className="flex items-center gap-1.5 mt-3 text-xs text-indigo-600 font-bold">
-              <span>بانتظار تقرير تشخيص الأعطال</span>
-            </div>
-          </div>
-
-          <div className="bg-white border-t-4 border-amber-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-            <div className="absolute top-0 left-0 w-28 h-28 bg-amber-550 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">تحت الصيانة والإصلاح</span>
-              <Wrench className="w-6 h-6 text-amber-500" />
-            </div>
-            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{repairsCount} سيارات</p>
-            <div className="flex items-center gap-1.5 mt-3 text-xs text-amber-600 font-bold">
-              <span>يعمل عليها الفنيون والكهربائيون</span>
+            <div>
+              <p className="text-slate-500 text-sm font-bold mb-1">سيارات قيد الفحص</p>
+              <h2 className="text-2xl font-black text-slate-800">
+                {pendingCount} <span className="text-sm text-slate-400 font-normal">سيارات</span>
+              </h2>
             </div>
           </div>
 
-          <div className="bg-white border-t-4 border-emerald-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-            <div className="absolute top-0 left-0 w-28 h-28 bg-emerald-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">دخل الصيانة الإجمالي</span>
-              <Coins className="w-6 h-6 text-emerald-500" />
+          {/* Card 2: تحت الصيانة والإصلاح */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-amber-50 text-amber-600 shrink-0">
+              <Wrench className="w-8 h-8" />
             </div>
-            <p className="text-3xl font-black text-emerald-600 mt-3 font-mono">{formatMoney(totalRevenue)}</p>
-            <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
-              <span>الفواتير وأوامر الصيانة الحالية</span>
+            <div>
+              <p className="text-slate-500 text-sm font-bold mb-1">تحت الصيانة والإصلاح</p>
+              <h2 className="text-2xl font-black text-slate-800">
+                {repairsCount} <span className="text-sm text-slate-400 font-normal">سيارات</span>
+              </h2>
             </div>
           </div>
 
-          <div className="bg-white border-t-4 border-emerald-600 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-            <div className="absolute top-0 left-0 w-28 h-28 bg-emerald-50/70 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">جاهزة للتسليم</span>
-              <CheckCircle className="w-6 h-6 text-emerald-600" />
+          {/* Card 3: دخل الصيانة الإجمالي */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-emerald-50 text-emerald-600 shrink-0">
+              <Coins className="w-8 h-8" />
             </div>
-            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{readyCount} سيارات</p>
-            <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
-              <span>انتهت الصيانة وبانتظار العميل</span>
+            <div>
+              <p className="text-slate-500 text-sm font-bold mb-1">دخل الصيانة الإجمالي</p>
+              <h2 className="text-2xl font-black text-emerald-600">
+                {formatMoney(totalRevenue)}
+              </h2>
+            </div>
+          </div>
+
+          {/* Card 4: جاهزة للتسليم */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-teal-50 text-teal-600 shrink-0">
+              <CheckCircle className="w-8 h-8" />
+            </div>
+            <div>
+              <p className="text-slate-500 text-sm font-bold mb-1">جاهزة للتسليم</p>
+              <h2 className="text-2xl font-black text-slate-800">
+                {readyCount} <span className="text-sm text-slate-400 font-normal">سيارات</span>
+              </h2>
             </div>
           </div>
         </div>
@@ -1466,52 +1473,56 @@ export default function Home() {
       const totalQty = productionOrders.reduce((acc, po) => acc + po.quantity, 0);
 
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white border-t-4 border-indigo-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-            <div className="absolute top-0 left-0 w-28 h-28 bg-indigo-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">أوامر الإنتاج الجارية</span>
-              <Cpu className="w-6 h-6 text-indigo-500" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Card 1: أوامر الإنتاج الجارية */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-indigo-50 text-indigo-600 shrink-0">
+              <Cpu className="w-8 h-8" />
             </div>
-            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{manufacturingCount} خطوط</p>
-            <div className="flex items-center gap-1.5 mt-3 text-xs text-indigo-600 font-bold">
-              <span>جاري التصنيع والقص الفعلي</span>
-            </div>
-          </div>
-
-          <div className="bg-white border-t-4 border-amber-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-            <div className="absolute top-0 left-0 w-28 h-28 bg-amber-550 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">تحضير المواد الخام</span>
-              <Package className="w-6 h-6 text-amber-500" />
-            </div>
-            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{rawMaterialsCount} طلبات</p>
-            <div className="flex items-center gap-1.5 mt-3 text-xs text-amber-600 font-bold">
-              <span>تجهيز الخامات وصرفها للمصنع</span>
+            <div>
+              <p className="text-slate-500 text-sm font-bold mb-1">أوامر الإنتاج الجارية</p>
+              <h2 className="text-2xl font-black text-slate-800">
+                {manufacturingCount} <span className="text-sm text-slate-400 font-normal">خطوط</span>
+              </h2>
             </div>
           </div>
 
-          <div className="bg-white border-t-4 border-emerald-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-            <div className="absolute top-0 left-0 w-28 h-28 bg-emerald-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">حجم الإنتاج الكلي</span>
-              <TrendingUp className="w-6 h-6 text-emerald-500" />
+          {/* Card 2: تحضير المواد الخام */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-amber-50 text-amber-600 shrink-0">
+              <Package className="w-8 h-8" />
             </div>
-            <p className="text-3xl font-black text-emerald-600 mt-3 font-mono">{totalQty.toLocaleString()} وحدة</p>
-            <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
-              <span>المنتجات المستهدفة بالتشغيل</span>
+            <div>
+              <p className="text-slate-500 text-sm font-bold mb-1">تحضير المواد الخام</p>
+              <h2 className="text-2xl font-black text-slate-800">
+                {rawMaterialsCount} <span className="text-sm text-slate-400 font-normal">طلبات</span>
+              </h2>
             </div>
           </div>
 
-          <div className="bg-white border-t-4 border-emerald-600 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-            <div className="absolute top-0 left-0 w-28 h-28 bg-emerald-50/70 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">كفاءة تشغيل المصنع</span>
-              <CheckCircle className="w-6 h-6 text-emerald-600" />
+          {/* Card 3: حجم الإنتاج الكلي */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-emerald-50 text-emerald-600 shrink-0">
+              <TrendingUp className="w-8 h-8" />
             </div>
-            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">92.5%</p>
-            <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
-              <span>نسبة إنتاجية الماكينات النشطة</span>
+            <div>
+              <p className="text-slate-500 text-sm font-bold mb-1">حجم الإنتاج الكلي</p>
+              <h2 className="text-2xl font-black text-emerald-600">
+                {totalQty.toLocaleString()} <span className="text-sm text-slate-400 font-normal">وحدة</span>
+              </h2>
+            </div>
+          </div>
+
+          {/* Card 4: كفاءة تشغيل المصنع */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-emerald-50 text-emerald-600 shrink-0">
+              <CheckCircle className="w-8 h-8" />
+            </div>
+            <div>
+              <p className="text-slate-500 text-sm font-bold mb-1">كفاءة تشغيل المصنع</p>
+              <h2 className="text-2xl font-black text-slate-800">
+                92.5%
+              </h2>
             </div>
           </div>
         </div>
@@ -1524,52 +1535,56 @@ export default function Home() {
       const totalBudget = serviceTasks.reduce((acc, t) => acc + t.budget, 0);
 
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white border-t-4 border-indigo-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-            <div className="absolute top-0 left-0 w-28 h-28 bg-indigo-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">المهام والمشاريع الجارية</span>
-              <Briefcase className="w-6 h-6 text-indigo-500" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Card 1: المهام والمشاريع الجارية */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-indigo-50 text-indigo-600 shrink-0">
+              <Briefcase className="w-8 h-8" />
             </div>
-            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{activeTasksCount} مهام</p>
-            <div className="flex items-center gap-1.5 mt-3 text-xs text-indigo-600 font-bold">
-              <span>قيد التنفيذ والمتابعة اليومية</span>
-            </div>
-          </div>
-
-          <div className="bg-white border-t-4 border-amber-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-            <div className="absolute top-0 left-0 w-28 h-28 bg-amber-550 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">مرحلة الفوترة والتحصيل</span>
-              <FileText className="w-6 h-6 text-amber-500" />
-            </div>
-            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{billingTasksCount} مشاريع</p>
-            <div className="flex items-center gap-1.5 mt-3 text-xs text-amber-600 font-bold">
-              <span>بانتظار الدفعات والتحويلات المالية</span>
+            <div>
+              <p className="text-slate-500 text-sm font-bold mb-1">المهام والمشاريع الجارية</p>
+              <h2 className="text-2xl font-black text-slate-800">
+                {activeTasksCount} <span className="text-sm text-slate-400 font-normal">مهام</span>
+              </h2>
             </div>
           </div>
 
-          <div className="bg-white border-t-4 border-emerald-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-            <div className="absolute top-0 left-0 w-28 h-28 bg-emerald-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">ميزانية العقود الحالية</span>
-              <Coins className="w-6 h-6 text-emerald-500" />
+          {/* Card 2: مرحلة الفوترة والتحصيل */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-amber-50 text-amber-600 shrink-0">
+              <FileText className="w-8 h-8" />
             </div>
-            <p className="text-3xl font-black text-emerald-600 mt-3 font-mono">{formatMoney(totalBudget)}</p>
-            <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
-              <span>إجمالي قيمة المشروعات النشطة</span>
+            <div>
+              <p className="text-slate-500 text-sm font-bold mb-1">مرحلة الفوترة والتحصيل</p>
+              <h2 className="text-2xl font-black text-slate-800">
+                {billingTasksCount} <span className="text-sm text-slate-400 font-normal">مشاريع</span>
+              </h2>
             </div>
           </div>
 
-          <div className="bg-white border-t-4 border-emerald-600 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-            <div className="absolute top-0 left-0 w-28 h-28 bg-emerald-50/70 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">مستوى الإنتاجية</span>
-              <CheckCircle className="w-6 h-6 text-emerald-600" />
+          {/* Card 3: ميزانية العقود الحالية */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-emerald-50 text-emerald-600 shrink-0">
+              <Coins className="w-8 h-8" />
             </div>
-            <p className="text-3xl font-black text-slate-900 mt-3 font-mono">98%</p>
-            <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
-              <span>التزام كامل بالمهام ومواعيد التسليم</span>
+            <div>
+              <p className="text-slate-500 text-sm font-bold mb-1">ميزانية العقود الحالية</p>
+              <h2 className="text-2xl font-black text-emerald-600">
+                {formatMoney(totalBudget)}
+              </h2>
+            </div>
+          </div>
+
+          {/* Card 4: مستوى الإنتاجية */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-emerald-50 text-emerald-600 shrink-0">
+              <CheckCircle className="w-8 h-8" />
+            </div>
+            <div>
+              <p className="text-slate-500 text-sm font-bold mb-1">مستوى الإنتاجية</p>
+              <h2 className="text-2xl font-black text-slate-800">
+                98%
+              </h2>
             </div>
           </div>
         </div>
@@ -1577,56 +1592,67 @@ export default function Home() {
     }
 
     // Default RETAIL
+    const lowStockCount = products.filter(p => {
+      let q = 0;
+      p.variants?.forEach((v: any) => {
+        v.balances?.forEach((b: any) => {
+          q += Number(b.quantity);
+        });
+      });
+      return q < 5;
+    }).length;
+
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white border-t-4 border-indigo-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-          <div className="absolute top-0 left-0 w-28 h-28 bg-indigo-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">إجمالي المبيعات</span>
-            <Coins className="w-6 h-6 text-indigo-500" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Card 1: إجمالي المبيعات والإيرادات */}
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-indigo-50 text-indigo-600 shrink-0">
+            <Coins className="w-8 h-8" />
           </div>
-          <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{formatMoney(totalSales)}</p>
-          <div className="flex items-center gap-1.5 mt-3 text-xs text-indigo-600 font-bold">
-            <TrendingUp className="w-4 h-4" />
-            <span>مباشر من نقاط البيع</span>
-          </div>
-        </div>
-
-        <div className="bg-white border-t-4 border-rose-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-          <div className="absolute top-0 left-0 w-28 h-28 bg-rose-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">إجمالي المصروفات</span>
-            <DollarSign className="w-6 h-6 text-rose-500" />
-          </div>
-          <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{formatMoney(totalExpenses)}</p>
-          <div className="flex items-center gap-1.5 mt-3 text-xs text-slate-500 font-bold">
-            <span>المصاريف والتشغيل العام</span>
+          <div>
+            <p className="text-slate-500 text-sm font-bold mb-1">إجمالي المبيعات والإيرادات</p>
+            <h2 className="text-2xl font-black text-slate-800 font-mono">
+              {formatMoney(totalSales)}
+            </h2>
           </div>
         </div>
 
-        <div className="bg-white border-t-4 border-emerald-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-          <div className="absolute top-0 left-0 w-28 h-28 bg-emerald-50 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">صافي الأرباح</span>
-            <Coins className="w-6 h-6 text-emerald-500" />
+        {/* Card 2: صافي رصيد الخزنة */}
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-emerald-50 text-emerald-600 shrink-0">
+            <Wallet className="w-8 h-8" />
           </div>
-          <p className={`text-3xl font-black mt-3 font-mono ${netProfit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-            ${netProfit.toFixed(2)}
-          </p>
-          <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600 font-bold">
-            <span>الهامش المالي المتبقي</span>
+          <div>
+            <p className="text-slate-500 text-sm font-bold mb-1">صافي رصيد الخزنة</p>
+            <h2 className="text-2xl font-black text-emerald-600 font-mono">
+              {formatMoney(totalSales - totalExpenses)}
+            </h2>
           </div>
         </div>
 
-        <div className="bg-white border-t-4 border-amber-500 border-x border-b border-slate-200/80 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 text-right shadow-sm shadow-slate-100">
-          <div className="absolute top-0 left-0 w-28 h-28 bg-amber-550 rounded-full -translate-x-6 -translate-y-6 group-hover:scale-110 transition-transform"></div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">كمية المخزون</span>
-            <Package className="w-6 h-6 text-amber-500" />
+        {/* Card 3: عدد الفواتير */}
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-indigo-50 text-indigo-600 shrink-0">
+            <FileText className="w-8 h-8" />
           </div>
-          <p className="text-3xl font-black text-slate-900 mt-3 font-mono">{totalStockQty} وحدة</p>
-          <div className="flex items-center gap-1.5 mt-3 text-xs text-amber-600 font-bold">
-            <span>موزعة على {warehouses.length} مستودع</span>
+          <div>
+            <p className="text-slate-500 text-sm font-bold mb-1">عدد الفواتير</p>
+            <h2 className="text-2xl font-black text-slate-800 font-mono">
+              {invoices.length} <span className="text-sm text-slate-400 font-normal">فاتورة</span>
+            </h2>
+          </div>
+        </div>
+
+        {/* Card 4: منتجات أوشكت على النفاذ */}
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 text-right">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-red-50 text-red-500 shrink-0">
+            <AlertTriangle className="w-8 h-8 animate-pulse" />
+          </div>
+          <div>
+            <p className="text-slate-500 text-sm font-bold mb-1">منتجات أوشكت على النفاذ</p>
+            <h2 className="text-2xl font-black text-slate-800 font-mono">
+              {lowStockCount} <span className="text-sm text-slate-400 font-normal">منتج</span>
+            </h2>
           </div>
         </div>
       </div>
@@ -2609,213 +2635,198 @@ export default function Home() {
 
   // --- MAIN DASHBOARD SCREEN (LIGHT THEME) ---
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-indigo-500 selection:text-white relative">
+    <div className="h-screen w-screen bg-slate-50 text-slate-900 flex font-sans selection:bg-indigo-500 selection:text-white relative overflow-hidden" dir="rtl">
       {/* Background decoration elements */}
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full bg-indigo-100/10 blur-[130px] pointer-events-none"></div>
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full bg-indigo-100/5 blur-[130px] pointer-events-none"></div>
 
-      {/* HEADERBAR */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 px-6 py-4.5 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <Building className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            {/* Show user's Business Name specifically, not the SaaS name! */}
-            <h1 className="font-extrabold text-lg leading-tight text-slate-900">
-              {tenantInfo?.businessName || regBusinessName || "مساحة عمل المنشأة"}
-            </h1>
-            <p className="text-sm text-slate-500 flex items-center gap-1.5 mt-1 font-medium">
-              <Globe className="w-4 h-4 text-slate-400" />
-              <span className="font-mono text-xs">{tenantInfo?.subdomain}.crmsaas.app</span>
-              <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-bold text-xs ms-1">
-                {getIndustryNameArabic(tenantInfo?.industryType || regIndustryType)}
+      {/* SIDEBAR NAVIGATION */}
+      <aside className="w-68 bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-20 h-full shrink-0">
+        <div className="p-6 pb-2 text-right">
+          <div className="flex items-center gap-3 bg-slate-850 p-3.5 rounded-2xl mb-6 border border-slate-800">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-500/20">
+              <Building className="w-5.5 h-5.5 text-white" />
+            </div>
+            <div className="flex flex-col flex-1 min-w-0">
+              <span className="font-bold text-white text-sm truncate" title={tenantInfo?.businessName || regBusinessName}>
+                {tenantInfo?.businessName || regBusinessName || "مساحة العمل"}
               </span>
-            </p>
+              <span className="text-[10px] text-slate-400 truncate mt-0.5">لوحة الإدارة</span>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <button
-            onClick={fetchAllData}
-            disabled={dataLoading}
-            className="hidden sm:flex items-center gap-2 px-4 py-2.5 border border-slate-200 hover:bg-slate-50 rounded-xl text-sm font-bold transition-all cursor-pointer text-slate-700 bg-white shadow-sm"
-          >
-            {dataLoading ? (
-              <Loader className="w-4 h-4 animate-spin text-indigo-600" />
-            ) : (
-              <Warehouse className="w-4.5 h-4.5 text-indigo-500" />
-            )}
-            <span>مزامنة البيانات</span>
-          </button>
-          
-          <div className="hidden sm:block text-left text-end">
-            <p className="text-sm font-bold text-slate-800">
-              {tenantInfo?.email}
-            </p>
-            <p className="text-xs text-slate-500 flex items-center gap-1.5 justify-end mt-0.5 font-medium">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>نشط سحابياً</span>
-            </p>
-          </div>
-
-          <button
-            onClick={() => setShowSettingsModal(true)}
-            className="p-3 border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 hover:text-indigo-650 rounded-xl transition-all cursor-pointer shadow-sm"
-            title="إعدادات المنشأة"
-          >
-            <Settings className="w-5 h-5 text-slate-500 hover:text-indigo-600" />
-          </button>
-
-          <button
-            onClick={handleLogout}
-            className="p-3 border border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-xl transition-all cursor-pointer shadow-sm"
-            title="تسجيل الخروج"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
-        </div>
-      </header>
-
-      {/* DASHBOARD BODY LAYOUT */}
-      <div className="flex flex-1 flex-col lg:flex-row">
-        {/* SIDEBAR NAVIGATION - Renders on the RIGHT side in RTL */}
-        <aside className="w-full lg:w-72 bg-white border-b lg:border-b-0 lg:border-l border-slate-200 p-5 shrink-0 flex flex-row lg:flex-col gap-2 overflow-x-auto lg:overflow-x-visible">
-          <div className="hidden lg:block px-4 py-2 mb-1">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">لوحات التحكم والمحاسبة</p>
-          </div>
-          
+        <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto text-right">
+          {/* Dashboard Button */}
           <button
             onClick={() => setActiveTab("dashboard")}
-            className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
+            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl transition-all cursor-pointer ${
               activeTab === "dashboard"
-                ? "bg-indigo-50 text-indigo-600 border-r-4 border-indigo-500 font-extrabold shadow-sm shadow-indigo-100/50"
-                : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                ? "bg-indigo-650 text-white font-bold shadow-lg shadow-indigo-600/20"
+                : "text-slate-400 hover:bg-slate-800 hover:text-white"
             }`}
           >
-            <LayoutDashboard className="w-5.5 h-5.5 shrink-0" />
+            <LayoutDashboard className="w-5 h-5 shrink-0" />
             <span>الرئيسية والإحصاءات</span>
           </button>
           
+          {/* Customers Button */}
           {(isModuleEnabled("customers") || isModuleEnabled("crm")) && (
             <button
               onClick={() => setActiveTab("customers")}
-              className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
+              className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl transition-all cursor-pointer ${
                 activeTab === "customers"
-                  ? "bg-indigo-50 text-indigo-600 border-r-4 border-indigo-500 font-extrabold shadow-sm shadow-indigo-100/50"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                  ? "bg-indigo-650 text-white font-bold shadow-lg shadow-indigo-600/20"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
               }`}
             >
-              <Users className="w-5.5 h-5.5 shrink-0" />
+              <Users className="w-5 h-5 shrink-0" />
               <span>إدارة العملاء (CRM)</span>
             </button>
           )}
 
+          {/* Products/Materials Button */}
           {(isModuleEnabled("products") || isModuleEnabled("materials") || isModuleEnabled("inventory")) && (
             <button
               onClick={() => setActiveTab("products")}
-              className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
+              className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl transition-all cursor-pointer ${
                 activeTab === "products"
-                  ? "bg-indigo-50 text-indigo-600 border-r-4 border-indigo-500 font-extrabold shadow-sm shadow-indigo-100/50"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                  ? "bg-indigo-650 text-white font-bold shadow-lg shadow-indigo-600/20"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
               }`}
             >
-              <Package className="w-5.5 h-5.5 shrink-0" />
+              <Package className="w-5 h-5 shrink-0" />
               <span>{getProductsLabel()}</span>
             </button>
           )}
 
+          {/* POS Button */}
           {isModuleEnabled("pos") && (
             <button
               onClick={() => setActiveTab("pos")}
-              className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
+              className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl transition-all cursor-pointer ${
                 activeTab === "pos"
-                  ? "bg-emerald-50 text-emerald-600 border-r-4 border-emerald-500 font-extrabold shadow-sm shadow-emerald-100/50"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                  ? "bg-emerald-600 text-white font-bold shadow-lg shadow-emerald-600/20"
+                  : "text-emerald-450 hover:bg-slate-800 hover:text-emerald-300"
               }`}
             >
-              <ShoppingCart className="w-5.5 h-5.5 shrink-0 text-emerald-500" />
-              <span className="text-emerald-600">فاتورة الكاشير (POS)</span>
+              <ShoppingCart className="w-5 h-5 shrink-0" />
+              <span>فاتورة الكاشير (POS)</span>
             </button>
           )}
-
-          {/* Template-Specific Tab 1: Projects (Furniture, Service) */}
+          
+          {/* Projects Button */}
           {isModuleEnabled("projects") && (
             <button
               onClick={() => setActiveTab("projects")}
-              className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
+              className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl transition-all cursor-pointer ${
                 activeTab === "projects"
-                  ? "bg-indigo-50 text-indigo-600 border-r-4 border-indigo-500 font-extrabold shadow-sm shadow-indigo-100/50"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                  ? "bg-indigo-650 text-white font-bold shadow-lg shadow-indigo-600/20"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
               }`}
             >
-              <Briefcase className="w-5.5 h-5.5 shrink-0" />
+              <Briefcase className="w-5 h-5 shrink-0" />
               <span>
                 {(tenantInfo?.industryType || regIndustryType) === "FURNITURE" ? "تفصيل ومقاسات المشاريع" : "إدارة المشاريع والمهام"}
               </span>
             </button>
           )}
 
-          {/* Template-Specific Tab 2: Workshop & Car Service (Garage) */}
+          {/* Workshop Button */}
           {(isModuleEnabled("vehicles") || isModuleEnabled("appointments")) && (
             <button
               onClick={() => setActiveTab("workshop")}
-              className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
+              className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl transition-all cursor-pointer ${
                 activeTab === "workshop"
-                  ? "bg-indigo-50 text-indigo-600 border-r-4 border-indigo-500 font-extrabold shadow-sm shadow-indigo-100/50"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                  ? "bg-indigo-650 text-white font-bold shadow-lg shadow-indigo-600/20"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
               }`}
             >
-              <Wrench className="w-5.5 h-5.5 shrink-0" />
+              <Wrench className="w-5 h-5 shrink-0" />
               <span>ورشة استقبال وصيانة السيارات</span>
             </button>
           )}
 
-          {/* Template-Specific Tab 3: Production Lines & Factory (Factory) */}
+          {/* Factory Button */}
           {isModuleEnabled("production") && (tenantInfo?.industryType || regIndustryType) === "FACTORY" && (
             <button
               onClick={() => setActiveTab("factory")}
-              className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
+              className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl transition-all cursor-pointer ${
                 activeTab === "factory"
-                  ? "bg-indigo-50 text-indigo-600 border-r-4 border-indigo-500 font-extrabold shadow-sm shadow-indigo-100/50"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                  ? "bg-indigo-650 text-white font-bold shadow-lg shadow-indigo-600/20"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
               }`}
             >
-              <Cpu className="w-5.5 h-5.5 shrink-0" />
+              <Cpu className="w-5 h-5 shrink-0" />
               <span>خطوط الإنتاج والتصنيع</span>
             </button>
           )}
 
+          {/* Invoices Button */}
           {(isModuleEnabled("sales") || isModuleEnabled("finance") || isModuleEnabled("invoices")) && (
             <button
               onClick={() => setActiveTab("invoices")}
-              className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
+              className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl transition-all cursor-pointer ${
                 activeTab === "invoices"
-                  ? "bg-indigo-50 text-indigo-600 border-r-4 border-indigo-500 font-extrabold shadow-sm shadow-indigo-100/50"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                  ? "bg-indigo-650 text-white font-bold shadow-lg shadow-indigo-600/20"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
               }`}
             >
-              <FileText className="w-5.5 h-5.5 shrink-0" />
+              <FileText className="w-5 h-5 shrink-0" />
               <span>سجل الفواتير الصادرة</span>
             </button>
           )}
 
+          {/* Expenses Button */}
           {(isModuleEnabled("finance") || isModuleEnabled("expenses")) && (
             <button
               onClick={() => setActiveTab("expenses")}
-              className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-bold transition-all shrink-0 cursor-pointer text-right ${
+              className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl transition-all cursor-pointer ${
                 activeTab === "expenses"
-                  ? "bg-indigo-50 text-indigo-600 border-r-4 border-indigo-500 font-extrabold shadow-sm shadow-indigo-100/50"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                  ? "bg-indigo-650 text-white font-bold shadow-lg shadow-indigo-600/20"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
               }`}
             >
-              <DollarSign className="w-5.5 h-5.5 shrink-0" />
+              <DollarSign className="w-5 h-5 shrink-0" />
               <span>المصروفات والخزينة</span>
             </button>
           )}
-        </aside>
+        </nav>
 
-        {/* MAIN VIEW AREA */}
-        <main className="flex-1 p-6 md:p-8 relative">
+        {/* Sidebar Footer with Sync, Settings, Logout */}
+        <div className="p-4 border-t border-slate-800 space-y-2">
+          <div className="flex gap-2">
+            <button
+              onClick={fetchAllData}
+              disabled={dataLoading}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer border border-slate-700/60 active:scale-[0.98] disabled:opacity-50"
+              title="مزامنة البيانات مع السيرفر"
+            >
+              {dataLoading ? <Loader className="w-3.5 h-3.5 animate-spin text-indigo-500" /> : <Warehouse className="w-3.5 h-3.5 text-indigo-400" />}
+              <span>تحديث</span>
+            </button>
+            
+            <button
+              onClick={() => setShowSettingsModal(true)}
+              className="p-2.5 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-xl border border-slate-700/60 transition-all cursor-pointer active:scale-[0.98]"
+              title="إعدادات المنشأة"
+            >
+              <Settings className="w-4.5 h-4.5 text-slate-400" />
+            </button>
+          </div>
+
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 w-full px-4 py-3 text-red-400 hover:bg-black/20 hover:text-red-300 rounded-xl transition text-sm font-bold justify-center cursor-pointer"
+          >
+            <LogOut className="w-4.5 h-4.5 animate-pulse" />
+            <span>خروج من الإدارة</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* MAIN VIEW AREA */}
+      <div className="flex-1 flex flex-col h-full overflow-y-auto bg-slate-50 relative">
+        <main className="p-6 md:p-8 relative">
           {/* Notifications */}
           {errorMsg && (
             <div className="mb-8 bg-rose-50 border border-rose-200 text-rose-700 p-5 rounded-3xl flex items-start gap-4 text-base relative animate-pulse text-right shadow-sm">
@@ -2854,6 +2865,14 @@ export default function Home() {
           {/* TAB CONTENT: 1. DASHBOARD OVERVIEW */}
           {activeTab === "dashboard" && (
             <div className="space-y-8">
+              {/* Dashboard Title & Subtitle */}
+              <div className="flex justify-between items-end mb-4 text-right">
+                <div>
+                  <h1 className="text-3xl font-black text-slate-800">نظرة عامة</h1>
+                  <p className="text-slate-500 mt-2">إحصائيات المبيعات والأداء</p>
+                </div>
+              </div>
+
               {/* METRIC CARD GRID */}
               {renderDashboardMetrics()}
 
@@ -2886,7 +2905,7 @@ export default function Home() {
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-right text-sm">
-                      <thead className="bg-slate-550 text-slate-600 border-b border-slate-200">
+                      <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
                         <tr>
                           <th className="px-6 py-4.5 font-extrabold">الاسم والملف التعريفى</th>
                           <th className="px-6 py-4.5 font-extrabold">معلومات الاتصال</th>
