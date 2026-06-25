@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
 import { WarehouseService } from './warehouse.service';
-import { CreateWarehouseDto, UpdateWarehouseDto, AdjustStockDto } from '@crm/dto';
+import { CreateWarehouseDto, UpdateWarehouseDto, AdjustStockDto, TransferStockDto, InventoryAuditDto } from '@crm/dto';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { PermissionsGuard } from '../rbac/guards/permissions.guard';
 import { RequirePermission } from '../rbac/decorators/permission.decorator';
@@ -44,6 +44,24 @@ export class WarehouseController {
   @RequirePermission('inventory', 'edit')
   async adjustStock(@Body() adjustStockDto: AdjustStockDto) {
     return this.warehouseService.adjustStock(adjustStockDto);
+  }
+
+  @Post('transfer')
+  @RequirePermission('inventory', 'edit')
+  async transferStock(@Body() transferDto: TransferStockDto) {
+    return this.warehouseService.transferStock(transferDto);
+  }
+
+  @Post('audit')
+  @RequirePermission('inventory', 'edit')
+  async auditInventory(@Body() auditDto: InventoryAuditDto) {
+    return this.warehouseService.auditInventory(auditDto);
+  }
+
+  @Get(':id/movements')
+  @RequirePermission('inventory', 'view')
+  async getMovements(@Param('id') id: string) {
+    return this.warehouseService.getMovements(id);
   }
 
   @Get(':id/balances')
